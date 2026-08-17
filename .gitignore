@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.env
+*.pt
+tazabak.db
+tazabak.db-shm
+tazabak.db-wal
+static/vision/*
+static/bio/*
+!static/vision/.gitkeep
+!static/bio/.gitkeep

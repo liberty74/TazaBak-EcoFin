@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img" aria-label="Уважение">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#dff7e8"/><stop offset="1" stop-color="#79c99e"/></linearGradient></defs>
+  <rect width="320" height="220" rx="28" fill="url(#g)"/>
+  <path d="M160 176C91 133 80 95 101 72c18-20 44-13 59 7 15-20 41-27 59-7 21 23 10 61-59 104Z" fill="#16845b"/>
+  <path d="M160 147c-4-34 9-57 38-72-4 28-17 49-38 72Zm-1 0c-3-25-15-43-37-54 4 23 16 40 37 54Z" fill="#fff" opacity=".9"/>
+  <text x="160" y="205" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#116149">УВАЖЕНИЕ</text>
+</svg>

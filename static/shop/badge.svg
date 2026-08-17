@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img" aria-label="Эко-значок">
+  <rect width="320" height="220" rx="28" fill="#fff4cf"/>
+  <circle cx="160" cy="102" r="70" fill="#f2bd3e"/>
+  <circle cx="160" cy="102" r="55" fill="#1d8c62"/>
+  <path d="M160 143c-9-43 5-74 42-94-2 39-17 70-42 94Zm-2-2c-4-29-18-50-45-62 6 29 21 50 45 62Z" fill="#fff"/>
+  <path d="m119 163-8 41 35-20 14 25 14-25 35 20-8-41" fill="#e6a92d"/>
+</svg>

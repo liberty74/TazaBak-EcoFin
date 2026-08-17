@@ -1,0 +1,9 @@
+.git
+.venv
+__pycache__
+.pytest_cache
+*.pyc
+*.pt
+tazabak.db*
+static/bio/*
+static/vision/*
