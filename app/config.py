@@ -134,6 +134,16 @@ class Settings:
             "suitcase",
         ),
     )
+    # EcoFin. A collection is recognised when the measured level drops sharply
+    # between two consecutive readings: a full bin becomes an empty one only
+    # when the truck has actually emptied it.
+    collection_drop_from_percent: float = _env_float(
+        "COLLECTION_DROP_FROM_PERCENT", 45.0
+    )
+    collection_drop_to_percent: float = _env_float(
+        "COLLECTION_DROP_TO_PERCENT", 15.0
+    )
+
     bio_reward_points: int = _env_int("BIO_REWARD_POINTS", 15)
     nft_price_points: int = _env_int("NFT_PRICE_POINTS", 100)
     yolo_model_path: str = os.getenv("YOLO_MODEL_PATH", "yolov8n.pt")
@@ -199,6 +209,11 @@ class Settings:
             raise ValueError("CAMERA_FRAME_RETENTION must be at least 1")
         if self.camera_illegal_dump_min_objects < 1:
             raise ValueError("CAMERA_ILLEGAL_DUMP_MIN_OBJECTS must be at least 1")
+        if not 0.0 <= self.collection_drop_to_percent < self.collection_drop_from_percent <= 100.0:
+            raise ValueError(
+                "COLLECTION_DROP_TO_PERCENT must be below "
+                "COLLECTION_DROP_FROM_PERCENT, both within [0, 100]"
+            )
 
 
 settings = Settings()

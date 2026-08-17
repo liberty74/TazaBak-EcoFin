@@ -397,5 +397,211 @@ class BioAnalysis(Base):
     user: Mapped[User | None] = relationship(back_populates="bio_analyses")
 
 
+class CostProfile(Base):
+    """Economic parameters of one operator: how much a single stop costs.
+
+    The model is deliberately marginal. One truck route serves many container
+    sites, so a skipped site saves the distance to the next stop and the crew
+    time spent there — not a whole round trip from the depot.
+    """
+
+    __tablename__ = "cost_profiles"
+    __table_args__ = (
+        CheckConstraint("km_per_stop > 0", name="ck_cost_profiles_km_positive"),
+        CheckConstraint(
+            "minutes_per_stop > 0", name="ck_cost_profiles_minutes_positive"
+        ),
+        CheckConstraint(
+            "fuel_consumption_l_per_100km > 0",
+            name="ck_cost_profiles_consumption_positive",
+        ),
+        CheckConstraint(
+            "fuel_price_kzt_per_liter > 0", name="ck_cost_profiles_fuel_price_positive"
+        ),
+        CheckConstraint(
+            "crew_cost_kzt_per_hour >= 0", name="ck_cost_profiles_crew_nonnegative"
+        ),
+        CheckConstraint(
+            "baseline_trips_per_week > 0", name="ck_cost_profiles_baseline_positive"
+        ),
+        CheckConstraint(
+            "fill_threshold_percent > 0 AND fill_threshold_percent <= 100",
+            name="ck_cost_profiles_threshold_range",
+        ),
+        CheckConstraint(
+            "co2_kg_per_liter > 0", name="ck_cost_profiles_co2_positive"
+        ),
+        CheckConstraint(
+            "bread_avg_weight_kg > 0", name="ck_cost_profiles_bread_weight_positive"
+        ),
+        CheckConstraint(
+            "bread_cost_kzt_per_kg >= 0", name="ck_cost_profiles_bread_cost_nonnegative"
+        ),
+        CheckConstraint(
+            "install_price_kzt >= 0", name="ck_cost_profiles_install_nonnegative"
+        ),
+        CheckConstraint(
+            "subscription_kzt_per_month >= 0",
+            name="ck_cost_profiles_subscription_nonnegative",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    org_name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    city: Mapped[str] = mapped_column(String(64), nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Route economics of a single container site.
+    km_per_stop: Mapped[float] = mapped_column(Float, nullable=False)
+    minutes_per_stop: Mapped[float] = mapped_column(Float, nullable=False)
+    fuel_consumption_l_per_100km: Mapped[float] = mapped_column(Float, nullable=False)
+    fuel_price_kzt_per_liter: Mapped[float] = mapped_column(Float, nullable=False)
+    crew_cost_kzt_per_hour: Mapped[float] = mapped_column(Float, nullable=False)
+
+    # The schedule TazaBAK is compared against, and the level that replaces it.
+    baseline_trips_per_week: Mapped[float] = mapped_column(Float, nullable=False)
+    fill_threshold_percent: Mapped[float] = mapped_column(
+        Float, default=80.0, nullable=False
+    )
+
+    # Diesel combustion factor, kept editable because fuel grades differ.
+    co2_kg_per_liter: Mapped[float] = mapped_column(
+        Float, default=2.68, nullable=False
+    )
+
+    bread_avg_weight_kg: Mapped[float] = mapped_column(
+        Float, default=0.4, nullable=False
+    )
+    bread_cost_kzt_per_kg: Mapped[float] = mapped_column(
+        Float, default=450.0, nullable=False
+    )
+
+    install_price_kzt: Mapped[float] = mapped_column(
+        Float, default=50_000.0, nullable=False
+    )
+    subscription_kzt_per_month: Mapped[float] = mapped_column(
+        Float, default=5_000.0, nullable=False
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    write_offs: Mapped[list["WriteOffRecord"]] = relationship(
+        back_populates="profile", cascade="all, delete-orphan"
+    )
+
+
+class CollectionEvent(Base):
+    """One servicing of a container site.
+
+    Sensor events are derived from telemetry: a sharp drop of the measured
+    level means the truck has emptied the bin. The level recorded here is the
+    one the dispatcher actually saw, which is what makes a trip worthwhile or
+    wasted.
+    """
+
+    __tablename__ = "collection_events"
+    __table_args__ = (
+        Index("ix_collection_events_device_time", "device_id", "collected_at"),
+        CheckConstraint(
+            "source IN ('SENSOR', 'DISPATCHER', 'SEED')",
+            name="ck_collection_events_source",
+        ),
+        CheckConstraint(
+            "fill_ema_before_percent >= 0 AND fill_ema_before_percent <= 100",
+            name="ck_collection_events_fill_range",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[str] = mapped_column(
+        ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    container_id: Mapped[int | None] = mapped_column(
+        ForeignKey("bin_containers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    collected_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utcnow, nullable=False, index=True
+    )
+    fill_ema_before_percent: Mapped[float] = mapped_column(Float, nullable=False)
+    fill_raw_before_percent: Mapped[float] = mapped_column(Float, nullable=False)
+    source: Mapped[str] = mapped_column(String(16), default="SENSOR", nullable=False)
+    idempotency_key: Mapped[str | None] = mapped_column(
+        String(96), unique=True, nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+
+class SavingsSnapshot(Base):
+    """A frozen savings report.
+
+    Numbers shown to a client are recomputed on every request, so a snapshot
+    exists to keep an auditable record of what was reported and when.
+    """
+
+    __tablename__ = "savings_snapshots"
+    __table_args__ = (
+        Index("ix_savings_snapshots_profile_created", "profile_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    profile_id: Mapped[int] = mapped_column(
+        ForeignKey("cost_profiles.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    period_start: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    period_end: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    containers: Mapped[int] = mapped_column(Integer, nullable=False)
+    trips_baseline: Mapped[float] = mapped_column(Float, nullable=False)
+    trips_actual: Mapped[int] = mapped_column(Integer, nullable=False)
+    trips_saved: Mapped[float] = mapped_column(Float, nullable=False)
+    km_saved: Mapped[float] = mapped_column(Float, nullable=False)
+    liters_saved: Mapped[float] = mapped_column(Float, nullable=False)
+    kzt_saved: Mapped[float] = mapped_column(Float, nullable=False)
+    co2_kg_saved: Mapped[float] = mapped_column(Float, nullable=False)
+    bread_kg_saved: Mapped[float] = mapped_column(Float, nullable=False)
+    bread_kzt_saved: Mapped[float] = mapped_column(Float, nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+
+class WriteOffRecord(Base):
+    """Daily unsold-product log of a bakery, cafe or school canteen."""
+
+    __tablename__ = "write_off_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "profile_id", "occurred_on", "product", name="uq_write_off_day_product"
+        ),
+        CheckConstraint(
+            "kg_written_off >= 0", name="ck_write_offs_written_nonnegative"
+        ),
+        CheckConstraint(
+            "kg_donated >= 0 AND kg_donated <= kg_written_off",
+            name="ck_write_offs_donated_within_written",
+        ),
+        CheckConstraint(
+            "cost_kzt_per_kg >= 0", name="ck_write_offs_cost_nonnegative"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    profile_id: Mapped[int] = mapped_column(
+        ForeignKey("cost_profiles.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    occurred_on: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    product: Mapped[str] = mapped_column(String(64), nullable=False)
+    kg_written_off: Mapped[float] = mapped_column(Float, nullable=False)
+    kg_donated: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    cost_kzt_per_kg: Mapped[float] = mapped_column(Float, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    profile: Mapped[CostProfile] = relationship(back_populates="write_offs")
+
+
 # Temporary import compatibility for code/tests written against v2.
 VolunteerRegistration = UserTask
