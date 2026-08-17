@@ -15,6 +15,8 @@ from app.models import (
     Alert,
     BinContainer,
     BioAnalysis,
+    CollectionEvent,
+    CostProfile,
     Device,
     DeviceCommand,
     EcoNFT,
@@ -154,6 +156,10 @@ def test_seed_roles_opening_ledger_and_idempotence(api) -> None:
                 .select_from(PointTransaction)
                 .where(PointTransaction.transaction_type == "OPENING_BALANCE")
             ),
+            "profiles": db.scalar(select(func.count()).select_from(CostProfile)),
+            "collections": db.scalar(
+                select(func.count()).select_from(CollectionEvent)
+            ),
         }
         user = db.scalar(select(User).where(User.username == "123"))
         container = db.scalar(
@@ -171,12 +177,17 @@ def test_seed_roles_opening_ledger_and_idempotence(api) -> None:
     assert roles["dispatcher-1"] == "dispatcher"
     assert before == {
         "users": 6,
-            "containers": 3,
-            "tasks": 33,
+        # Three original sites plus the nine Kokshetau pilot container points.
+        "containers": 12,
+        "tasks": 33,
         "items": 3,
         "messages": 2,
         "opening_ledger": 5,
+        "profiles": 1,
+        "collections": before["collections"],
     }
+    # Ten municipal sites are backfilled with a month of servicing history.
+    assert before["collections"] > 0
     assert all(row["role"] != "dispatcher" for row in client.get("/api/leaderboard").json())
 
     seed_initial_data(session_factory)
@@ -192,6 +203,10 @@ def test_seed_roles_opening_ledger_and_idempotence(api) -> None:
                 select(func.count())
                 .select_from(PointTransaction)
                 .where(PointTransaction.transaction_type == "OPENING_BALANCE")
+            ),
+            "profiles": db.scalar(select(func.count()).select_from(CostProfile)),
+            "collections": db.scalar(
+                select(func.count()).select_from(CollectionEvent)
             ),
         }
         preserved_points = db.scalar(
