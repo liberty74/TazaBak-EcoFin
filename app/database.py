@@ -88,6 +88,31 @@ def apply_compatibility_migrations() -> None:
         if "password_hash" not in columns:
             connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(256)"))
             logger.info("Applied SQLite migration: users.password_hash")
+        if "school_class" not in columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN school_class VARCHAR(32)"))
+            logger.info("Applied SQLite migration: users.school_class")
+
+        profile_columns = {
+            row["name"]
+            for row in connection.execute(
+                text("PRAGMA table_info(cost_profiles)")
+            ).mappings()
+        }
+        if profile_columns and "depot_latitude" not in profile_columns:
+            # Kokshetau depot, refined on site. A closed tour needs a start.
+            connection.execute(
+                text(
+                    "ALTER TABLE cost_profiles "
+                    "ADD COLUMN depot_latitude FLOAT NOT NULL DEFAULT 53.2650"
+                )
+            )
+            connection.execute(
+                text(
+                    "ALTER TABLE cost_profiles "
+                    "ADD COLUMN depot_longitude FLOAT NOT NULL DEFAULT 69.4300"
+                )
+            )
+            logger.info("Applied SQLite migration: cost_profiles depot coordinates")
 
         device_columns = {
             row["name"]

@@ -67,6 +67,9 @@ class User(Base):
     status_tier: Mapped[str] = mapped_column(
         String(64), default="Eco-Starter", nullable=False
     )
+    # Set only for school participants, so classes can be ranked against each
+    # other. Residents and staff keep it empty.
+    school_class: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
 
     user_tasks: Mapped[list["UserTask"]] = relationship(
@@ -467,6 +470,13 @@ class CostProfile(Base):
     # Diesel combustion factor, kept editable because fuel grades differ.
     co2_kg_per_liter: Mapped[float] = mapped_column(
         Float, default=2.68, nullable=False
+    )
+
+    # Where the truck starts and ends its round. A route is a closed tour, so
+    # the depot participates in the distance even when no site is visited.
+    depot_latitude: Mapped[float] = mapped_column(Float, default=53.2650, nullable=False)
+    depot_longitude: Mapped[float] = mapped_column(
+        Float, default=69.4300, nullable=False
     )
 
     bread_avg_weight_kg: Mapped[float] = mapped_column(
