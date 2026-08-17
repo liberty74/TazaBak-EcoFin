@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -21,12 +22,16 @@ from app.models import (
     utcnow,
 )
 from app.schemas import (
+    BusinessForecast,
     CollectionEventCreate,
     CollectionEventResponse,
+    ContainerForecast,
     EcoCostProfileResponse,
     EcoCostProfileUpdate,
+    RoutePlan,
     SavingsReport,
     SavingsSnapshotResponse,
+    SchoolClassStanding,
     WriteOffCreate,
     WriteOffResponse,
 )
@@ -35,6 +40,9 @@ from app.services.device_activity import (
     DeviceInactiveError,
     ensure_municipal_device_is_active,
 )
+from app.services.eco_business import forecast_write_offs, school_standings
+from app.services.eco_forecast import forecast_all
+from app.services.eco_route import build_route_plan
 from app.services.eco_savings import (
     ProfileNotConfiguredError,
     apply_profile_update,
@@ -84,6 +92,51 @@ def savings(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Savings report is temporarily unavailable",
         ) from exc
+
+
+@public_router.get("/forecast", response_model=list[ContainerForecast])
+def forecast(
+    profile_id: Annotated[int | None, Query(gt=0)] = None,
+    db: Session = Depends(get_db),
+) -> list[ContainerForecast]:
+    """When each site reaches the dispatch threshold, most urgent first."""
+
+    return forecast_all(db, _profile_or_404(db, profile_id))
+
+
+@public_router.get("/schools/leaderboard", response_model=list[SchoolClassStanding])
+def schools_leaderboard(
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    profile_id: Annotated[int | None, Query(gt=0)] = None,
+    db: Session = Depends(get_db),
+) -> list[SchoolClassStanding]:
+    return school_standings(db, _profile_or_404(db, profile_id), limit=limit)
+
+
+@router.get("/route", response_model=RoutePlan)
+def route(
+    horizon_hours: Annotated[float, Query(gt=0, le=168)] = 24.0,
+    profile_id: Annotated[int | None, Query(gt=0)] = None,
+    db: Session = Depends(get_db),
+) -> RoutePlan:
+    """Tomorrow's round, priced against driving every site in the district."""
+
+    profile = _profile_or_404(db, profile_id)
+    return build_route_plan(db, profile, horizon_hours=horizon_hours)
+
+
+@router.get("/business/forecast", response_model=BusinessForecast)
+def business_forecast(
+    target: Annotated[date | None, Query()] = None,
+    weeks: Annotated[int, Query(ge=1, le=12)] = 4,
+    profile_id: Annotated[int | None, Query(gt=0)] = None,
+    db: Session = Depends(get_db),
+) -> BusinessForecast:
+    """Expected leftovers per product, averaged over the same weekday."""
+
+    profile = _profile_or_404(db, profile_id)
+    target_date = target or (utcnow().date() + timedelta(days=1))
+    return forecast_write_offs(db, profile, target=target_date, weeks=weeks)
 
 
 @router.get("/profile", response_model=EcoCostProfileResponse)
@@ -235,7 +288,7 @@ def create_snapshot(
         kzt_saved=report.money.total_kzt,
         co2_kg_saved=report.resources.co2_kg_saved,
         bread_kg_saved=report.bread.kg_total,
-        bread_kzt_saved=report.bread.kzt_saved,
+        bread_kzt_saved=report.bread.rescued_value_kzt,
         payload=report.model_dump(mode="json"),
     )
 

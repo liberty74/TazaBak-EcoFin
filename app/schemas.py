@@ -404,10 +404,18 @@ class EcoMoney(BaseModel):
 
 
 class EcoBread(BaseModel):
+    """Bread kept out of the bin.
+
+    ``rescued_value_kzt`` is the cost of the product that reached a shelter
+    instead of a landfill. It is deliberately kept apart from ``EcoMoney``:
+    the bakery does not get this money back, so adding it to fuel savings
+    would overstate the operator's return.
+    """
+
     kg_from_citizens: float
     kg_from_business: float
     kg_total: float
-    kzt_saved: float
+    rescued_value_kzt: float
 
 
 class EcoPayback(BaseModel):
@@ -537,6 +545,94 @@ class WriteOffResponse(BaseModel):
     kg_donated: float
     cost_kzt_per_kg: float
     updated_at: datetime
+
+
+class ContainerForecast(BaseModel):
+    container_id: int
+    device_id: str
+    name: str
+    latitude: float
+    longitude: float
+    fill_percent: float
+    threshold_percent: float
+    samples: int
+    status: Literal["due_now", "forecast", "unavailable"]
+    rate_percent_per_hour: float | None = None
+    r_squared: float | None = None
+    eta_hours: float | None = None
+    eta_at: datetime | None = None
+    reason: Literal["not_enough_measurements", "not_filling"] | None = None
+
+
+class RouteScenario(BaseModel):
+    label: str
+    stops: int
+    distance_km: float
+    liters: float
+    kzt: float
+
+
+class RouteLeg(BaseModel):
+    position: int
+    from_label: str
+    to_label: str
+    container_id: int | None = None
+    distance_km: float
+
+
+class RoutePlan(BaseModel):
+    generated_at: datetime
+    horizon_hours: float
+    baseline: RouteScenario
+    planned: RouteScenario
+    distance_saved_km: float
+    liters_saved: float
+    kzt_saved: float
+    co2_kg_saved: float
+    legs: list[RouteLeg]
+    skipped: list[str]
+
+
+class ProductForecast(BaseModel):
+    product: str
+    expected_kg: float
+    average_kg: float
+    deviation_percent: float
+    samples: int
+    basis: Literal["same_weekday", "all_days"]
+
+
+class WeekdayProfile(BaseModel):
+    weekday: int = Field(ge=0, le=6)
+    name: str
+    average_kg: float
+    samples: int
+
+
+class BusinessForecast(BaseModel):
+    profile_id: int
+    org_name: str
+    target_date: date
+    target_weekday: str
+    lookback_weeks: int
+    products: list[ProductForecast]
+    weekday_profile: list[WeekdayProfile]
+    history_days: int
+    total_written_off_kg: float
+    total_donated_kg: float
+    donation_rate_percent: float
+    # Cost of the product that reached a shelter instead of a landfill. Not
+    # money returned to the bakery — the product was already written off.
+    rescued_value_kzt: float
+
+
+class SchoolClassStanding(BaseModel):
+    school_class: str
+    pupils: int
+    points: int
+    accepted_items: int
+    bread_kg: float
+    bread_kzt: float
 
 
 class AIChatRequest(BaseModel):
