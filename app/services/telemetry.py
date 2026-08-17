@@ -12,6 +12,7 @@ from app.config import settings
 from app.models import (
     Alert,
     BinContainer,
+    CollectionEvent,
     Device,
     DeviceCommand,
     Telemetry,
@@ -27,6 +28,7 @@ class TelemetryResult:
     alert_id: int | None
     command_id: int | None
     should_close_lid: bool
+    collection_event_id: int | None = None
 
 
 class DeviceKindConflictError(RuntimeError):
@@ -57,6 +59,42 @@ def _raw_fill_percent(distance_cm: float) -> float:
         (settings.h_empty_cm - distance_cm) / denominator
     ) * 100.0
     return min(100.0, max(0.0, raw_fill))
+
+
+def _detect_collection(
+    *,
+    device_id: str,
+    container: BinContainer | None,
+    previous: Telemetry | None,
+    fill_raw: float,
+    received_at: datetime,
+) -> CollectionEvent | None:
+    """Recognise a servicing from the shape of the measurement itself.
+
+    Waste accumulates gradually, so a full bin that reads nearly empty on the
+    next measurement can only mean the truck has been there. The raw level is
+    used rather than the EMA because emptying is exactly the sharp step the
+    smoothing filter is designed to suppress.
+
+    The level recorded is the one the dispatcher saw before the visit, which
+    is what decides whether the trip was worth making.
+    """
+
+    if previous is None:
+        return None
+    if previous.fill_raw_percent < settings.collection_drop_from_percent:
+        return None
+    if fill_raw > settings.collection_drop_to_percent:
+        return None
+
+    return CollectionEvent(
+        device_id=device_id,
+        container_id=container.id if container is not None else None,
+        collected_at=received_at,
+        fill_ema_before_percent=previous.fill_ema_percent,
+        fill_raw_before_percent=previous.fill_raw_percent,
+        source="SENSOR",
+    )
 
 
 def process_telemetry(db: Session, payload: TelemetryIn) -> TelemetryResult:
@@ -214,8 +252,20 @@ def process_telemetry(db: Session, payload: TelemetryIn) -> TelemetryResult:
     )
     if container is not None:
         container.last_fill_level = fill_ema
+
+    collection = _detect_collection(
+        device_id=payload.device_id,
+        container=container,
+        previous=previous,
+        fill_raw=fill_raw,
+        received_at=received_at,
+    )
+    if collection is not None:
+        db.add(collection)
+
     db.flush()
     alert_id = alert.id if alert is not None else None
+    collection_event_id = collection.id if collection is not None else None
     db.commit()
 
     return TelemetryResult(
@@ -223,4 +273,5 @@ def process_telemetry(db: Session, payload: TelemetryIn) -> TelemetryResult:
         alert_id=alert_id,
         command_id=command.id if command is not None else None,
         should_close_lid=should_close_lid,
+        collection_event_id=collection_event_id,
     )
