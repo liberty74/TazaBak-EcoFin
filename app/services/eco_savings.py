@@ -224,21 +224,26 @@ def _bread_saved(
     )
     kg_from_citizens = approved * profile.bread_avg_weight_kg
 
-    donated = db.scalar(
-        select(func.sum(WriteOffRecord.kg_donated)).where(
+    # Each write-off carries its own cost per kilogram: a baguette is not
+    # priced like a loaf, so the business side is valued record by record.
+    business_rows = db.execute(
+        select(WriteOffRecord.kg_donated, WriteOffRecord.cost_kzt_per_kg).where(
             WriteOffRecord.profile_id == profile.id,
             WriteOffRecord.occurred_on >= period_start.date(),
             WriteOffRecord.occurred_on <= period_end.date(),
         )
-    )
-    kg_from_business = float(donated or 0.0)
+    ).all()
+    kg_from_business = sum(float(kg) for kg, _ in business_rows)
+    business_value = sum(float(kg) * float(cost) for kg, cost in business_rows)
+
     kg_total = kg_from_citizens + kg_from_business
+    rescued_value = kg_from_citizens * profile.bread_cost_kzt_per_kg + business_value
 
     return EcoBread(
         kg_from_citizens=round(kg_from_citizens, 2),
         kg_from_business=round(kg_from_business, 2),
         kg_total=round(kg_total, 2),
-        kzt_saved=round(kg_total * profile.bread_cost_kzt_per_kg, 2),
+        rescued_value_kzt=round(rescued_value, 2),
     )
 
 
