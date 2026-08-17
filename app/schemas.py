@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime, time, timezone
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 
 DEVICE_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$"
@@ -341,6 +341,202 @@ class ForumMessageResponse(BaseModel):
     username: str
     text: str
     timestamp: datetime
+
+
+class EcoCostProfileResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    org_name: str
+    city: str
+    km_per_stop: float
+    minutes_per_stop: float
+    fuel_consumption_l_per_100km: float
+    fuel_price_kzt_per_liter: float
+    crew_cost_kzt_per_hour: float
+    baseline_trips_per_week: float
+    fill_threshold_percent: float
+    co2_kg_per_liter: float
+    bread_avg_weight_kg: float
+    bread_cost_kzt_per_kg: float
+    install_price_kzt: float
+    subscription_kzt_per_month: float
+    updated_at: datetime
+
+
+class EcoCostProfileUpdate(BaseModel):
+    """Every field is optional: a dispatcher tunes one parameter at a time."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    km_per_stop: float | None = Field(default=None, gt=0, le=500)
+    minutes_per_stop: float | None = Field(default=None, gt=0, le=600)
+    fuel_consumption_l_per_100km: float | None = Field(default=None, gt=0, le=200)
+    fuel_price_kzt_per_liter: float | None = Field(default=None, gt=0, le=10_000)
+    crew_cost_kzt_per_hour: float | None = Field(default=None, ge=0, le=1_000_000)
+    baseline_trips_per_week: float | None = Field(default=None, gt=0, le=21)
+    fill_threshold_percent: float | None = Field(default=None, gt=0, le=100)
+    co2_kg_per_liter: float | None = Field(default=None, gt=0, le=10)
+    bread_avg_weight_kg: float | None = Field(default=None, gt=0, le=10)
+    bread_cost_kzt_per_kg: float | None = Field(default=None, ge=0, le=100_000)
+    install_price_kzt: float | None = Field(default=None, ge=0, le=100_000_000)
+    subscription_kzt_per_month: float | None = Field(default=None, ge=0, le=10_000_000)
+
+
+class EcoTrips(BaseModel):
+    baseline: float
+    actual: int
+    saved: float
+    reduction_percent: float
+    average_fill_at_collection_percent: float | None = None
+
+
+class EcoResources(BaseModel):
+    km_saved: float
+    liters_saved: float
+    co2_kg_saved: float
+
+
+class EcoMoney(BaseModel):
+    fuel_kzt: float
+    crew_kzt: float
+    total_kzt: float
+
+
+class EcoBread(BaseModel):
+    kg_from_citizens: float
+    kg_from_business: float
+    kg_total: float
+    kzt_saved: float
+
+
+class EcoPayback(BaseModel):
+    monthly_savings_kzt: float
+    monthly_subscription_kzt: float
+    net_monthly_kzt: float
+    install_total_kzt: float
+    payback_months: float | None = None
+
+
+class EcoWeeklyPoint(BaseModel):
+    week_start: date
+    trips_saved: float
+    kzt_saved: float
+    co2_kg_saved: float
+
+
+class EcoFormulaInputs(BaseModel):
+    """Raw inputs behind the report, so any figure can be traced on stage."""
+
+    days: float
+    containers: int
+    km_per_stop: float
+    minutes_per_stop: float
+    fuel_consumption_l_per_100km: float
+    fuel_price_kzt_per_liter: float
+    crew_cost_kzt_per_hour: float
+    baseline_trips_per_week: float
+    co2_kg_per_liter: float
+    km_per_saved_stop: float
+    liters_per_saved_stop: float
+    kzt_per_saved_stop: float
+
+
+class SavingsReport(BaseModel):
+    generated_at: datetime
+    period_start: datetime
+    period_end: datetime
+    profile_id: int
+    org_name: str
+    city: str
+    containers: int
+    trips: EcoTrips
+    resources: EcoResources
+    money: EcoMoney
+    bread: EcoBread
+    payback: EcoPayback
+    weekly: list[EcoWeeklyPoint]
+    formula: EcoFormulaInputs
+
+
+class CollectionEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    device_id: str
+    container_id: int | None
+    collected_at: datetime
+    fill_ema_before_percent: float
+    fill_raw_before_percent: float
+    source: Literal["SENSOR", "DISPATCHER", "SEED"]
+
+
+class CollectionEventCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    device_id: str = Field(pattern=DEVICE_ID_PATTERN)
+    idempotency_key: str = Field(min_length=8, max_length=64)
+    collected_at: datetime | None = None
+
+    @field_validator("collected_at")
+    @classmethod
+    def normalize_collected_at(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is not None:
+            return value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value
+
+
+class SavingsSnapshotResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    profile_id: int
+    period_start: datetime
+    period_end: datetime
+    containers: int
+    trips_baseline: float
+    trips_actual: int
+    trips_saved: float
+    km_saved: float
+    liters_saved: float
+    kzt_saved: float
+    co2_kg_saved: float
+    bread_kg_saved: float
+    bread_kzt_saved: float
+    created_at: datetime
+
+
+class WriteOffCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    occurred_on: date
+    product: str = Field(min_length=1, max_length=64)
+    kg_written_off: float = Field(ge=0, le=10_000, allow_inf_nan=False)
+    kg_donated: float = Field(default=0.0, ge=0, le=10_000, allow_inf_nan=False)
+    cost_kzt_per_kg: float = Field(ge=0, le=100_000, allow_inf_nan=False)
+
+    @field_validator("kg_donated")
+    @classmethod
+    def donated_within_written(cls, value: float, info: ValidationInfo) -> float:
+        written = info.data.get("kg_written_off")
+        if written is not None and value > written:
+            raise ValueError("kg_donated must not exceed kg_written_off")
+        return value
+
+
+class WriteOffResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    profile_id: int
+    occurred_on: date
+    product: str
+    kg_written_off: float
+    kg_donated: float
+    cost_kzt_per_kg: float
+    updated_at: datetime
 
 
 class AIChatRequest(BaseModel):
