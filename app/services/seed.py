@@ -7,6 +7,7 @@ overwritten, so restarting the API cannot reset balances or user changes.
 from __future__ import annotations
 
 import logging
+import random
 from collections.abc import Callable
 from datetime import date, time, timedelta
 
@@ -16,12 +17,15 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import (
     BinContainer,
+    CollectionEvent,
+    CostProfile,
     Device,
     ForumMessage,
     PointTransaction,
     ShopItem,
     User,
     VolunteerTask,
+    utcnow,
 )
 from app.services.passwords import hash_password
 
@@ -102,6 +106,80 @@ def _seed_containers(db: Session) -> None:
             "Демонстрационный макет TazaBAK",
             53.2833,
             69.3833,
+        ),
+        # Пилотные площадки Кокшетау. Координаты ориентировочные и уточняются
+        # при монтаже: для расчёта экономики важна плотность точек на маршруте.
+        (
+            "municipal-abaya-12",
+            "municipal",
+            "Площадка Абая, 12",
+            "г. Кокшетау, ул. Абая, 12",
+            53.2871,
+            69.3902,
+        ),
+        (
+            "municipal-auezova-31",
+            "municipal",
+            "Площадка Ауэзова, 31",
+            "г. Кокшетау, ул. Ауэзова, 31",
+            53.2905,
+            69.3961,
+        ),
+        (
+            "municipal-tashenova-7",
+            "municipal",
+            "Площадка Ташенова, 7",
+            "г. Кокшетау, ул. Ж. Ташенова, 7",
+            53.2938,
+            69.4012,
+        ),
+        (
+            "municipal-gorkogo-45",
+            "municipal",
+            "Площадка Горького, 45",
+            "г. Кокшетау, ул. Горького, 45",
+            53.2822,
+            69.3958,
+        ),
+        (
+            "municipal-satpaeva-19",
+            "municipal",
+            "Площадка Сатпаева, 19",
+            "г. Кокшетау, ул. Сатпаева, 19",
+            53.2790,
+            69.4025,
+        ),
+        (
+            "municipal-vasilkovsky-3",
+            "municipal",
+            "Площадка мкр. Васильковский, 3",
+            "г. Кокшетау, мкр. Васильковский, 3",
+            53.2996,
+            69.4104,
+        ),
+        (
+            "municipal-akan-sery-22",
+            "municipal",
+            "Площадка Акана Сері, 22",
+            "г. Кокшетау, ул. Акана Сері, 22",
+            53.2864,
+            69.4081,
+        ),
+        (
+            "municipal-ualikhanova-58",
+            "municipal",
+            "Площадка Уалиханова, 58",
+            "г. Кокшетау, ул. Ш. Уалиханова, 58",
+            53.2917,
+            69.3874,
+        ),
+        (
+            "municipal-nazarbaeva-104",
+            "municipal",
+            "Площадка пр. Назарбаева, 104",
+            "г. Кокшетау, пр. Н. Назарбаева, 104",
+            53.2953,
+            69.4143,
         ),
     )
     existing_container_devices = set(
@@ -232,6 +310,98 @@ def _seed_forum_messages(db: Session) -> None:
         )
 
 
+PILOT_ORG_NAME = "Коммунальная служба Кокшетау (пилот)"
+COLLECTION_HISTORY_DAYS = 30
+
+
+def _seed_cost_profile(db: Session) -> None:
+    """Economic parameters of the pilot operator.
+
+    Values are pilot estimates and are meant to be corrected from the
+    dispatcher panel once real route data arrives:
+
+    * 1.5 км и 6 минут — среднее расстояние и время обслуживания одной
+      площадки внутри городского маршрута;
+    * 26 л/100 км — типовой расход мусоровоза на базе МАЗ;
+    * 331 ₸/л — дизель в Казахстане, июль 2026;
+    * 3.5 рейса в неделю — действующий график вывоза, с которым сравнивается
+      вывоз по фактической заполненности;
+    * 2.68 кг CO2 на литр — коэффициент сжигания дизельного топлива.
+    """
+
+    if db.scalar(select(CostProfile).where(CostProfile.org_name == PILOT_ORG_NAME)):
+        return
+
+    db.add(
+        CostProfile(
+            org_name=PILOT_ORG_NAME,
+            city="Кокшетау",
+            is_default=True,
+            km_per_stop=1.5,
+            minutes_per_stop=6.0,
+            fuel_consumption_l_per_100km=26.0,
+            fuel_price_kzt_per_liter=331.0,
+            crew_cost_kzt_per_hour=2_500.0,
+            baseline_trips_per_week=3.5,
+            fill_threshold_percent=80.0,
+            co2_kg_per_liter=2.68,
+            bread_avg_weight_kg=0.4,
+            bread_cost_kzt_per_kg=450.0,
+            install_price_kzt=50_000.0,
+            subscription_kzt_per_month=5_000.0,
+        )
+    )
+    db.flush()
+
+
+def _seed_collection_history(db: Session) -> None:
+    """Thirty days of servicing history so the savings chart opens populated.
+
+    Live telemetry creates these events by itself when a bin is emptied. This
+    backfill only gives a fresh database something to draw, and every row is
+    marked ``SEED`` so demo data can never be mistaken for measurements.
+    """
+
+    already_seeded = db.scalar(
+        select(func.count())
+        .select_from(CollectionEvent)
+        .where(CollectionEvent.source == "SEED")
+    )
+    if already_seeded:
+        return
+
+    containers = db.scalars(
+        select(BinContainer)
+        .join(Device, Device.id == BinContainer.device_id)
+        .where(Device.kind == "municipal")
+        .order_by(BinContainer.id.asc())
+    ).all()
+    if not containers:
+        return
+
+    period_end = utcnow()
+    period_start = period_end - timedelta(days=COLLECTION_HISTORY_DAYS)
+
+    for container in containers:
+        # Deterministic per container: the same database always demos the same.
+        generator = random.Random(f"tazabak:{container.device_id}")
+        moment = period_start + timedelta(hours=generator.uniform(0, 48))
+        while moment < period_end:
+            db.add(
+                CollectionEvent(
+                    device_id=container.device_id,
+                    container_id=container.id,
+                    collected_at=moment,
+                    # A bin is serviced once it passes the dispatch threshold,
+                    # so the level before the visit sits just above it.
+                    fill_ema_before_percent=round(generator.uniform(80.0, 96.0), 2),
+                    fill_raw_before_percent=round(generator.uniform(82.0, 99.0), 2),
+                    source="SEED",
+                )
+            )
+            moment += timedelta(days=generator.uniform(2.2, 4.0))
+
+
 def seed_initial_data(
     session_factory: Callable[[], Session] = SessionLocal,
 ) -> None:
@@ -244,6 +414,9 @@ def seed_initial_data(
             _seed_volunteer_tasks(db)
             _seed_shop_items(db)
             _seed_forum_messages(db)
+            _seed_cost_profile(db)
+            db.flush()
+            _seed_collection_history(db)
             db.commit()
             logger.info("Demo data seed completed")
         except Exception:
