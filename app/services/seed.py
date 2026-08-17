@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import random
 from collections.abc import Callable
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -23,8 +23,10 @@ from app.models import (
     ForumMessage,
     PointTransaction,
     ShopItem,
+    Telemetry,
     User,
     VolunteerTask,
+    WriteOffRecord,
     utcnow,
 )
 from app.services.passwords import hash_password
@@ -37,24 +39,27 @@ def _seed_users(db: Session) -> None:
     """Create role-aware demo accounts and their opening ledger entries."""
 
     demo_users = (
-        # username, role, opening balance, tier
-        ("123", "user", 120, "Eco-Hero"),
-        ("volunteer-1", "volunteer", 40, "Eco-Volunteer"),
-        ("dispatcher-1", "dispatcher", 0, "Dispatcher"),
-        ("Айгерім", "user", 280, "Eco-Legend"),
-        ("Диас", "user", 190, "Eco-Hero"),
-        ("Мадина", "user", 150, "Eco-Activist"),
+        # username, role, opening balance, tier, school class
+        ("123", "user", 120, "Eco-Hero", "8Б"),
+        ("volunteer-1", "volunteer", 40, "Eco-Volunteer", None),
+        ("dispatcher-1", "dispatcher", 0, "Dispatcher", None),
+        ("Айгерім", "user", 280, "Eco-Legend", "9А"),
+        ("Диас", "user", 190, "Eco-Hero", "8Б"),
+        ("Мадина", "user", 150, "Eco-Activist", "9А"),
     )
     existing_users = {
         user.username: user for user in db.scalars(select(User)).all()
     }
 
-    for username, role, points, tier in demo_users:
+    for username, role, points, tier, school_class in demo_users:
         existing_user = existing_users.get(username)
         if existing_user is not None:
             # Demo accounts remain usable after upgrading an existing database.
             if not existing_user.password_hash:
                 existing_user.password_hash = hash_password("123")
+            # Filling an empty column is not overwriting a user's own choice.
+            if existing_user.school_class is None and school_class is not None:
+                existing_user.school_class = school_class
             continue
 
         user = User(
@@ -63,6 +68,7 @@ def _seed_users(db: Session) -> None:
             role=role,
             points=points,
             status_tier=tier,
+            school_class=school_class,
         )
         db.add(user)
         db.flush()
@@ -402,6 +408,134 @@ def _seed_collection_history(db: Session) -> None:
             moment += timedelta(days=generator.uniform(2.2, 4.0))
 
 
+def _seed_recent_telemetry(db: Session) -> None:
+    """Readings of the current filling cycle, so the forecast has a trend.
+
+    The physical prototype is deliberately excluded: it sends its own real
+    telemetry during a demo, and synthetic history would corrupt it.
+    """
+
+    containers = db.scalars(
+        select(BinContainer)
+        .join(Device, Device.id == BinContainer.device_id)
+        .where(
+            Device.kind == "municipal",
+            BinContainer.device_id != "municipal-prototype-001",
+        )
+        .order_by(BinContainer.id.asc())
+    ).all()
+
+    now = utcnow()
+    for container in containers:
+        already_measured = db.scalar(
+            select(func.count())
+            .select_from(Telemetry)
+            .where(Telemetry.device_id == container.device_id)
+        )
+        if already_measured:
+            continue
+
+        generator = random.Random(f"tazabak:telemetry:{container.device_id}")
+        # Each site fills at its own pace, and each is at its own point in the
+        # cycle, so the dispatcher sees a spread of arrival times.
+        fill_now = generator.uniform(24.0, 88.0)
+        rate_per_hour = generator.uniform(0.5, 1.6)
+
+        last_collected = db.scalar(
+            select(CollectionEvent.collected_at)
+            .where(CollectionEvent.device_id == container.device_id)
+            .order_by(CollectionEvent.collected_at.desc())
+            .limit(1)
+        )
+        earliest = now - timedelta(hours=14)
+        if last_collected is not None:
+            earliest = max(earliest, last_collected + timedelta(hours=1))
+
+        moments: list[datetime] = []
+        moment = now
+        while moment > earliest:
+            moments.append(moment)
+            moment -= timedelta(hours=2)
+        moments.reverse()
+        if len(moments) < 3:
+            continue
+
+        fill_ema = None
+        for moment in moments:
+            hours_before = (now - moment).total_seconds() / 3600.0
+            trend = max(0.0, fill_now - rate_per_hour * hours_before)
+            # HC-SR04 is noisy; the smoothed series follows the trend itself.
+            raw = min(100.0, max(0.0, trend + generator.uniform(-2.5, 2.5)))
+            fill_ema = trend if fill_ema is None else 0.3 * raw + 0.7 * fill_ema
+            temp_in = generator.uniform(18.0, 24.0)
+            temp_out = temp_in - generator.uniform(0.5, 3.0)
+            db.add(
+                Telemetry(
+                    device_id=container.device_id,
+                    distance_cm=round(25.0 - raw / 100.0 * 18.0, 2),
+                    temp_in_c=round(temp_in, 2),
+                    temp_out_c=round(temp_out, 2),
+                    temperature_delta_c=round(temp_in - temp_out, 2),
+                    delta_rate_c_per_sec=0.0,
+                    sampling_interval_seconds=7200.0,
+                    fill_raw_percent=round(raw, 2),
+                    fill_ema_percent=round(fill_ema, 2),
+                    fire_score=round(0.7 * (temp_in - temp_out), 4),
+                    fire_streak=0,
+                    measured_at=moment,
+                    received_at=moment,
+                )
+            )
+
+        if fill_ema is not None:
+            container.last_fill_level = round(fill_ema, 2)
+
+
+def _seed_write_offs(db: Session) -> None:
+    """Four weeks of a bakery's evening leftovers.
+
+    The weekday forecast needs several samples of the same weekday before it
+    can say anything, so a fresh database starts with a month of history.
+    """
+
+    profile = db.scalar(select(CostProfile).where(CostProfile.org_name == PILOT_ORG_NAME))
+    if profile is None:
+        return
+    if db.scalar(
+        select(func.count())
+        .select_from(WriteOffRecord)
+        .where(WriteOffRecord.profile_id == profile.id)
+    ):
+        return
+
+    # Пн, Вт, Ср, Чт, Пт, Сб, Вс — по пятницам разбирают лучше, по выходным
+    # пекут с запасом и остаётся больше.
+    weekday_factor = (1.0, 1.15, 1.0, 0.95, 0.8, 1.25, 1.3)
+    products = (
+        ("Хлеб пшеничный", 8.0, 450.0),
+        ("Багет", 3.0, 520.0),
+        ("Булочки", 4.0, 600.0),
+    )
+
+    today = date.today()
+    for day_offset in range(1, 29):
+        day = today - timedelta(days=day_offset)
+        for product, base_kg, cost in products:
+            generator = random.Random(f"tazabak:writeoff:{product}:{day.isoformat()}")
+            written = base_kg * weekday_factor[day.weekday()] * generator.uniform(0.85, 1.15)
+            donated = written * generator.uniform(0.7, 0.9)
+            db.add(
+                WriteOffRecord(
+                    profile_id=profile.id,
+                    occurred_on=day,
+                    product=product,
+                    kg_written_off=round(written, 2),
+                    kg_donated=round(donated, 2),
+                    cost_kzt_per_kg=cost,
+                )
+            )
+
+
 def seed_initial_data(
     session_factory: Callable[[], Session] = SessionLocal,
 ) -> None:
@@ -417,6 +551,8 @@ def seed_initial_data(
             _seed_cost_profile(db)
             db.flush()
             _seed_collection_history(db)
+            _seed_recent_telemetry(db)
+            _seed_write_offs(db)
             db.commit()
             logger.info("Demo data seed completed")
         except Exception:
