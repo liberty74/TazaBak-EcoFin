@@ -26,6 +26,7 @@ from app.api import (
     community,
     dispatch,
     dispatcher,
+    eco,
     sensors,
     shop,
     users,
@@ -108,6 +109,8 @@ def create_app() -> FastAPI:
     application.include_router(bio.router)
     application.include_router(dispatch.router)
     application.include_router(dispatcher.router)
+    application.include_router(eco.public_router)
+    application.include_router(eco.router)
     application.include_router(users.router)
     application.include_router(volunteer.router)
     application.include_router(shop.router)
