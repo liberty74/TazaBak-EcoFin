@@ -69,6 +69,18 @@ def apply_compatibility_migrations() -> None:
         return
 
     with engine.begin() as connection:
+        # A fresh checkout has no database file yet. PRAGMA on a missing table
+        # returns nothing, so an unguarded ALTER would fail on first start.
+        existing_tables = {
+            row[0]
+            for row in connection.execute(
+                text("SELECT name FROM sqlite_master WHERE type = 'table'")
+            )
+        }
+        if "users" not in existing_tables:
+            logger.debug("Skipping SQLite migrations: schema not created yet")
+            return
+
         columns = {
             row["name"]
             for row in connection.execute(text("PRAGMA table_info(users)")).mappings()
