@@ -1,0 +1,18 @@
+{
+  "name": "Миска добра — TazaBAK",
+  "short_name": "TazaBAK",
+  "description": "Умная экосистема сбора хлеба и городского мониторинга в Кокшетау.",
+  "lang": "ru",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8F6EF",
+  "theme_color": "#176B4D",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

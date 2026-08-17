@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+/* Dark utilities must follow the application's theme switch, not the phone's
+   operating-system preference. Without this override iOS could combine a dark
+   background with light-theme text and make pages look empty. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-primary: #176B4D;
+  --color-primary-light: #39A96B;
+  --color-accent: #A8D672;
+  --color-bread: #D89A52;
+  --color-cream: #F8F6EF;
+  --color-sand: #EFE7D5;
+  --color-graphite: #24332D;
+  --color-critical: #D64545;
+  --color-warning: #F59E42;
+  --color-info: #3B82F6;
+
+  --font-sans: "Inter", "Manrope", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: var(--color-cream);
+    --foreground: var(--color-graphite);
+    --card: #FFFFFF;
+    --card-foreground: var(--color-graphite);
+    --border: var(--color-sand);
+    --ring: var(--color-primary-light);
+    --muted: #F1EBDD;
+    --muted-foreground: #66736D;
+  }
+  .dark {
+    --background: #1A221E;
+    --foreground: var(--color-cream);
+    --card: #24332D;
+    --card-foreground: var(--color-cream);
+    --border: #3A4A42;
+    --ring: var(--color-primary);
+    --muted: #303D37;
+    --muted-foreground: #B7C2BC;
+  }
+}
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+    min-height: 100dvh;
+  }
+  body {
+    @apply bg-background text-foreground antialiased transition-colors duration-300;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-primary-light/50 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-primary/70;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Several hackathon screens were initially authored only with light-theme
+   utility classes. Keep those legacy surfaces readable in dark mode unless a
+   component already declares an explicit dark:* alternative. */
+.dark .bg-white:not([class*="dark:bg-"]) {
+  background-color: var(--card);
+}
+.dark .bg-cream:not([class*="dark:bg-"]) {
+  background-color: var(--background);
+}
+.dark .border-sand:not([class*="dark:border-"]) {
+  border-color: var(--border);
+}
+.dark .text-graphite:not([class*="dark:text-"]) {
+  color: var(--foreground);
+}
+.dark .text-primary:not([class*="dark:text-"]) {
+  color: var(--color-primary-light);
+}
+.dark [class*="text-graphite/"]:not([class*="dark:text-"]) {
+  color: var(--muted-foreground);
+}
+
+@media (max-width: 1023px) {
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
