@@ -30,10 +30,11 @@ DISPATCHER_HEADERS = {"X-Dispatcher-Key": settings.dispatcher_api_key}
 
 
 def _clear_history(db) -> None:
-    """Remove seeded servicing history so a test controls the numbers."""
+    """Remove seeded history so a test fully controls the numbers."""
 
     db.execute(delete(CollectionEvent))
     db.execute(delete(BioAnalysis))
+    db.execute(delete(WriteOffRecord))
     db.commit()
 
 
@@ -172,7 +173,7 @@ def test_empty_period_returns_zeros_without_dividing_by_zero(api) -> None:
     assert report.trips.actual == 0
     assert report.trips.average_fill_at_collection_percent is None
     assert report.bread.kg_total == 0.0
-    assert report.bread.kzt_saved == 0.0
+    assert report.bread.rescued_value_kzt == 0.0
     # No servicing at all means the whole schedule was avoided.
     assert report.trips.saved == pytest.approx(report.trips.baseline)
 
@@ -443,6 +444,9 @@ def test_snapshot_freezes_the_numbers_that_were_reported(api) -> None:
 def test_write_off_day_is_corrected_not_duplicated(api) -> None:
     client, session_factory, _ = api
 
+    with session_factory() as db:
+        _clear_history(db)
+
     body = {
         "occurred_on": "2026-08-16",
         "product": "Хлеб пшеничный",
@@ -485,7 +489,10 @@ def test_write_off_cannot_donate_more_than_was_written_off(api) -> None:
 
 
 def test_donated_bread_reaches_the_savings_report(api) -> None:
-    client, _, _ = api
+    client, session_factory, _ = api
+
+    with session_factory() as db:
+        _clear_history(db)
 
     today = utcnow().date().isoformat()
     client.put(
@@ -505,5 +512,9 @@ def test_donated_bread_reaches_the_savings_report(api) -> None:
     assert bread["kg_total"] == pytest.approx(
         bread["kg_from_citizens"] + 15.0
     )
-    # 450 ₸ за килограмм — себестоимость из экономического профиля.
-    assert bread["kzt_saved"] == pytest.approx(bread["kg_total"] * 450.0, abs=0.01)
+    # 450 ₸ за килограмм — себестоимость из самой записи о списании.
+    # Это стоимость спасённого продукта, а не деньги, вернувшиеся пекарне,
+    # поэтому она и не входит в money.total_kzt.
+    assert bread["rescued_value_kzt"] == pytest.approx(15.0 * 450.0, abs=0.01)
+    savings = client.get("/api/eco/savings", params={"days": 7}).json()
+    assert savings["money"]["total_kzt"] != bread["rescued_value_kzt"]

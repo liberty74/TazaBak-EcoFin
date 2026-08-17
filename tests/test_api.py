@@ -646,8 +646,17 @@ def test_device_kind_interlocks_reject_bio_on_municipal_and_sensors_on_bio(
     assert sensors_on_bio.status_code == 409
 
     with session_factory() as db:
+        # Ни одна из отклонённых операций не должна оставить следа именно на
+        # тех устройствах, к которым обращались.
         assert db.scalar(select(func.count()).select_from(BioAnalysis)) == 0
-        assert db.scalar(select(func.count()).select_from(Telemetry)) == 0
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(Telemetry)
+                .where(Telemetry.device_id == "bio-central-park-001")
+            )
+            == 0
+        )
 
 
 def test_decoded_image_over_pixel_limit_returns_413(
