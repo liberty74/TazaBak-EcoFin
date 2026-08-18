@@ -31,9 +31,10 @@ from app.models import (
     VolunteerTask,
 )
 from app.services.seed import seed_initial_data
+from app.services.clip_bread import BreadClassification, ClipAnalysisError
 from app.services.gemini_bot import GeminiBot, GeminiUserContext
 import app.services.websocket as websocket_service
-from app.services.yolo import DetectedObject
+from app.services.yolo import DetectedObject, YoloAnalysisError
 
 
 DISPATCHER_HEADERS = {"X-Dispatcher-Key": settings.dispatcher_api_key}
@@ -71,6 +72,24 @@ def detected(label: str, confidence: float = 0.95) -> DetectedObject:
         label=label,
         confidence=confidence,
         bounding_box=[1.0, 2.0, 30.0, 40.0],
+    )
+
+
+def classified(
+    decision: str = "fresh_bread", confidence: float = 0.93
+) -> BreadClassification:
+    """One CLIP verdict, with the remaining probability split evenly."""
+
+    remainder = round((1.0 - confidence) / 2, 4)
+    probabilities = dict.fromkeys(
+        ("fresh_bread", "moldy_bread", "no_bread"), remainder
+    )
+    probabilities[decision] = confidence
+    return BreadClassification(
+        decision=decision,  # type: ignore[arg-type]
+        confidence=confidence,
+        probabilities=probabilities,
+        model="openai/clip-vit-base-patch32",
     )
 
 
@@ -335,11 +354,17 @@ def test_temperature_above_50_sends_websocket_and_creates_alert(api) -> None:
     ).json()["total_unresolved"] == 1
 
 
-def test_vision_upload_saves_frame_and_creates_illegal_dump_alert(api) -> None:
+def test_vision_upload_saves_frame_and_creates_illegal_dump_alert(
+    api, monkeypatch: pytest.MonkeyPatch
+) -> None:
     client, session_factory, static_dir = api
+    monkeypatch.setattr(
+        "app.api.vision.detect_objects",
+        lambda _: [detected("bottle", 0.91)],
+    )
     response = client.post(
         "/api/vision/frame",
-        data={"device_id": "municipal-camera", "force_detect": "true"},
+        data={"device_id": "municipal-camera"},
         files={"image": ("../../unsafe.png", PNG_1X1, "image/png")},
     )
 
@@ -348,8 +373,13 @@ def test_vision_upload_saves_frame_and_creates_illegal_dump_alert(api) -> None:
     assert body["detected"] is True
     assert body["object_label"] == "illegal_dump"
     assert body["alert_id"] is not None
+    assert body["confidence"] == 0.91
+    assert body["detected_objects"] == [
+        {"label": "bottle", "confidence": 0.91, "bounding_box": [1.0, 2.0, 30.0, 40.0]}
+    ]
     stored_path = static_dir / body["image_url"].removeprefix("/static/")
     assert stored_path.is_file()
+    # The upload is the evidence behind the alert and is stored unmodified.
     assert stored_path.read_bytes() == PNG_1X1
     assert "unsafe" not in stored_path.name
 
@@ -357,18 +387,75 @@ def test_vision_upload_saves_frame_and_creates_illegal_dump_alert(api) -> None:
         frame = db.get(VisionFrame, body["frame_id"])
         alert = db.get(Alert, body["alert_id"])
     assert frame is not None and frame.detected is True
+    assert frame.detections[0]["label"] == "bottle"
     assert alert is not None and alert.alert_type == "ILLEGAL_DUMP"
     assert alert.evidence_path == frame.image_path
+    assert alert.details["model"] == "yolov8n.pt"
+
+
+def test_vision_upload_of_a_clean_frame_raises_no_alert(
+    api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A frame with nothing in it must stay silent.
+
+    The endpoint used to decide with ``random.random() < 0.35``, so an empty
+    scene could raise an incident. The decision now comes from the detector.
+    """
+
+    client, session_factory, _ = api
+    monkeypatch.setattr("app.api.vision.detect_objects", lambda _: [])
+    response = client.post(
+        "/api/vision/frame",
+        data={"device_id": "municipal-camera"},
+        files={"image": ("frame.png", PNG_1X1, "image/png")},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["detected"] is False
+    assert body["object_label"] is None
+    assert body["alert_id"] is None
+    assert body["confidence"] is None
+    assert body["detected_objects"] == []
+
+    with session_factory() as db:
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(Alert)
+                .where(Alert.alert_type == "ILLEGAL_DUMP")
+            )
+            == 0
+        )
+
+
+def test_vision_upload_reports_when_the_detector_is_unavailable(
+    api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A missing model is an outage, not a silent 'nothing detected'."""
+
+    client, session_factory, _ = api
+
+    def unavailable(_):
+        raise YoloAnalysisError("YOLO model is unavailable")
+
+    monkeypatch.setattr("app.api.vision.detect_objects", unavailable)
+    response = client.post(
+        "/api/vision/frame",
+        data={"device_id": "municipal-camera"},
+        files={"image": ("frame.png", PNG_1X1, "image/png")},
+    )
+
+    assert response.status_code == 503
+    with session_factory() as db:
+        assert db.scalar(select(func.count()).select_from(VisionFrame)) == 0
 
 
 def test_bio_bread_approval_awards_15_in_ledger_and_opens_lid(
     api, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, session_factory, _ = api
-    monkeypatch.setattr(
-        "app.api.bio.detect_objects",
-        lambda _: [detected("sandwich")],
-    )
+    monkeypatch.setattr("app.api.bio.classify_bread", lambda _: classified())
     device_id = "bio-central-park-001"
 
     with client.websocket_connect(f"/ws/device/{device_id}") as websocket:
@@ -402,7 +489,15 @@ def test_bio_bread_approval_awards_15_in_ledger_and_opens_lid(
     assert body["qr_code"].startswith("GOOD")
     assert body["action_triggered"] == "OPEN_LID"
     assert body["command_sent"] is True
-    assert body["detected_objects"][0]["label"] == "sandwich"
+    assert body["classification"]["decision"] == "fresh_bread"
+    assert body["classification"]["confidence"] == 0.93
+    assert body["classification"]["model"] == "openai/clip-vit-base-patch32"
+    # The probabilities behind the verdict are part of the answer.
+    assert set(body["classification"]["probabilities"]) == {
+        "fresh_bread",
+        "moldy_bread",
+        "no_bread",
+    }
 
     with session_factory() as db:
         analysis = db.get(BioAnalysis, body["analysis_id"])
@@ -432,11 +527,11 @@ def test_bio_idempotent_replay_reuses_analysis_qr_and_reward_but_conflict_is_409
     client, session_factory, _ = api
     inference_calls: list[str] = []
 
-    def bread_detection(_):
+    def bread_inference(_):
         inference_calls.append("called")
-        return [detected("sandwich")]
+        return classified()
 
-    monkeypatch.setattr("app.api.bio.detect_objects", bread_detection)
+    monkeypatch.setattr("app.api.bio.classify_bread", bread_inference)
     operation_key = "bio-replay-operation-001"
     first = post_bio(client, idempotency_key=operation_key)
     replay = post_bio(client, idempotency_key=operation_key)
@@ -474,11 +569,11 @@ def test_bio_idempotency_is_scoped_to_device_for_same_user_key_and_image(
     client, session_factory, _ = api
     inference_calls: list[str] = []
 
-    def bread_detection(_):
+    def bread_inference(_):
         inference_calls.append("called")
-        return [detected("sandwich")]
+        return classified()
 
-    monkeypatch.setattr("app.api.bio.detect_objects", bread_detection)
+    monkeypatch.setattr("app.api.bio.classify_bread", bread_inference)
     qr_values = iter((333, 444))
     monkeypatch.setattr(
         "app.api.bio.secrets.randbelow",
@@ -522,13 +617,13 @@ def test_bio_idempotency_is_scoped_to_device_for_same_user_key_and_image(
     assert [reward.amount for reward in rewards] == [15, 15]
 
 
-def test_bio_mold_has_priority_over_bread_and_awards_nothing(
+def test_bio_moldy_bread_is_rejected_and_awards_nothing(
     api, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, session_factory, _ = api
     monkeypatch.setattr(
-        "app.api.bio.detect_objects",
-        lambda _: [detected("sandwich", 0.99), detected("broccoli", 0.75)],
+        "app.api.bio.classify_bread",
+        lambda _: classified("moldy_bread", 0.88),
     )
 
     response = post_bio(client)
@@ -541,6 +636,7 @@ def test_bio_mold_has_priority_over_bread_and_awards_nothing(
     assert body["qr_code"].startswith("BAD")
     assert body["action_triggered"] is None
     assert body["command_sent"] is False
+    assert body["classification"]["decision"] == "moldy_bread"
 
     with session_factory() as db:
         reward_count = db.scalar(
@@ -552,6 +648,62 @@ def test_bio_mold_has_priority_over_bread_and_awards_nothing(
     assert reward_count == 0
     assert analysis is not None and analysis.status == "reject"
     assert analysis.points == 0
+    # The verdict is stored with its probabilities, so it can be re-examined.
+    assert analysis.classification["probabilities"]["moldy_bread"] == 0.88
+    assert analysis.model_name == "openai/clip-vit-base-patch32"
+
+
+def test_bio_unconfident_classification_awards_nothing(
+    api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A near-tie between fresh and spoiled bread must not become points.
+
+    Points are real value, and the safety advice attached to an approval is
+    real too. When the model cannot separate the classes, the honest answer
+    is to ask for a better photo.
+    """
+
+    client, session_factory, _ = api
+    monkeypatch.setattr(
+        "app.api.bio.classify_bread",
+        lambda _: classified("fresh_bread", 0.41),
+    )
+
+    response = post_bio(client)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["status"] == "invalid"
+    assert body["reason"] == "low_confidence"
+    assert body["points_awarded"] == 0
+    assert body["current_balance"] == 120
+    assert body["qr_code"].startswith("NONE")
+    assert body["classification"]["decision"] == "fresh_bread"
+
+    with session_factory() as db:
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(PointTransaction)
+                .where(PointTransaction.transaction_type == "BIO_REWARD")
+            )
+            == 0
+        )
+
+
+def test_bio_reports_when_the_classifier_is_unavailable(
+    api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, session_factory, _ = api
+
+    def unavailable(_):
+        raise ClipAnalysisError("CLIP model is unavailable")
+
+    monkeypatch.setattr("app.api.bio.classify_bread", unavailable)
+    response = post_bio(client)
+
+    assert response.status_code == 503
+    with session_factory() as db:
+        assert db.scalar(select(func.count()).select_from(BioAnalysis)) == 0
 
 
 def test_bio_nonbread_is_invalid_without_points_and_qr_codes_are_unique(
@@ -559,8 +711,8 @@ def test_bio_nonbread_is_invalid_without_points_and_qr_codes_are_unique(
 ) -> None:
     client, session_factory, _ = api
     monkeypatch.setattr(
-        "app.api.bio.detect_objects",
-        lambda _: [detected("bottle")],
+        "app.api.bio.classify_bread",
+        lambda _: classified("no_bread", 0.90),
     )
     qr_values = iter((111, 222))
     monkeypatch.setattr(
@@ -592,15 +744,15 @@ def test_bio_nonbread_is_invalid_without_points_and_qr_codes_are_unique(
         ) == 2
 
 
-def test_bio_empty_multipart_file_returns_invalid_without_running_yolo(
+def test_bio_empty_multipart_file_returns_invalid_without_running_the_model(
     api, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, session_factory, _ = api
 
     def should_not_run(_):
-        raise AssertionError("YOLO must not run for an empty upload")
+        raise AssertionError("Inference must not run for an empty upload")
 
-    monkeypatch.setattr("app.api.bio.detect_objects", should_not_run)
+    monkeypatch.setattr("app.api.bio.classify_bread", should_not_run)
     response = post_bio(client, data=b"")
 
     assert response.status_code == 200, response.text
@@ -611,6 +763,8 @@ def test_bio_empty_multipart_file_returns_invalid_without_running_yolo(
     assert body["current_balance"] == 120
     assert body["image_url"] is None
     assert body["detected_objects"] == []
+    # Nothing was classified, so there are no probabilities to show.
+    assert body["classification"] is None
     assert body["action_triggered"] is None
 
     with session_factory() as db:
@@ -630,9 +784,9 @@ def test_device_kind_interlocks_reject_bio_on_municipal_and_sensors_on_bio(
     client, session_factory, _ = api
 
     def should_not_run(_):
-        raise AssertionError("YOLO must not run after a device-kind conflict")
+        raise AssertionError("Inference must not run after a device-kind conflict")
 
-    monkeypatch.setattr("app.api.bio.detect_objects", should_not_run)
+    monkeypatch.setattr("app.api.bio.classify_bread", should_not_run)
     bio_on_municipal = post_bio(
         client,
         device_id="municipal-prototype-001",
@@ -665,9 +819,9 @@ def test_decoded_image_over_pixel_limit_returns_413(
     client, session_factory, _ = api
 
     def should_not_run(_):
-        raise AssertionError("YOLO must not run for an oversized decoded image")
+        raise AssertionError("Inference must not run for an oversized decoded image")
 
-    monkeypatch.setattr("app.api.bio.detect_objects", should_not_run)
+    monkeypatch.setattr("app.api.bio.classify_bread", should_not_run)
     response = post_bio(
         client,
         data=make_png(size=(11, 10)),

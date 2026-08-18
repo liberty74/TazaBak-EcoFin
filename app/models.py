@@ -394,6 +394,11 @@ class BioAnalysis(Base):
     detected_objects: Mapped[list[dict[str, Any]]] = mapped_column(
         JSON, default=list, nullable=False
     )
+    # The zero-shot decision and the probability of every class behind it, so
+    # a past verdict can be re-examined instead of only trusted.
+    classification: Mapped[dict[str, Any]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
     model_name: Mapped[str] = mapped_column(String(64), default="yolov8n.pt", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
 

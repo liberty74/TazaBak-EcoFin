@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import date, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -28,6 +30,8 @@ from app.schemas import (
     ContainerForecast,
     EcoCostProfileResponse,
     EcoCostProfileUpdate,
+    EcoRecommendation,
+    EcoRecommendations,
     RoutePlan,
     SavingsReport,
     SavingsSnapshotResponse,
@@ -40,6 +44,11 @@ from app.services.device_activity import (
     DeviceInactiveError,
     ensure_municipal_device_is_active,
 )
+from app.services.eco_advisor import (
+    build_facts,
+    drop_ungrounded,
+    fallback_recommendations,
+)
 from app.services.eco_business import forecast_write_offs, school_standings
 from app.services.eco_forecast import forecast_all
 from app.services.eco_route import build_route_plan
@@ -50,6 +59,7 @@ from app.services.eco_savings import (
     get_profile,
     report_period,
 )
+from app.services.gemini_bot import gemini_bot
 
 
 logger = logging.getLogger(__name__)
@@ -123,6 +133,72 @@ def route(
 
     profile = _profile_or_404(db, profile_id)
     return build_route_plan(db, profile, horizon_hours=horizon_hours)
+
+
+def _parse_recommendations(raw: str) -> list[EcoRecommendation]:
+    """Read the model's JSON answer, tolerating a markdown code fence."""
+
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        _, _, text = text.partition("\n")
+    try:
+        payload = json.loads(text)
+        items = payload["recommendations"]
+    except (ValueError, KeyError, TypeError):
+        logger.warning("Assistant returned an unreadable recommendation payload")
+        return []
+
+    parsed: list[EcoRecommendation] = []
+    for item in items if isinstance(items, list) else []:
+        try:
+            parsed.append(EcoRecommendation.model_validate(item))
+        except ValidationError:
+            logger.warning("Skipped a malformed recommendation item")
+    return parsed
+
+
+@router.get("/recommendations", response_model=EcoRecommendations)
+async def recommendations(
+    days: Annotated[int, Query(ge=1, le=365)] = 30,
+    horizon_hours: Annotated[float, Query(gt=0, le=168)] = 24.0,
+    profile_id: Annotated[int | None, Query(gt=0)] = None,
+    db: Session = Depends(get_db),
+) -> EcoRecommendations:
+    """Three actions for tomorrow, derived from the computed metrics.
+
+    The assistant never sees the database and never does arithmetic: it is
+    handed the finished numbers and asked to interpret them. Anything it
+    writes that quotes a number it was not given is dropped here, and the
+    same facts are returned so that check can be repeated.
+    """
+
+    profile = _profile_or_404(db, profile_id)
+    facts = build_facts(db, profile, days=days, horizon_hours=horizon_hours)
+
+    generated = await gemini_bot.interpret_metrics(facts)
+    if generated is not None:
+        raw, model_name = generated
+        grounded = drop_ungrounded(_parse_recommendations(raw), facts)
+        if grounded:
+            return EcoRecommendations(
+                generated_at=utcnow(),
+                provider="google-gemini",
+                model=model_name,
+                facts=facts,
+                recommendations=grounded,
+            )
+        logger.warning(
+            "No grounded recommendation survived verification; using local rules"
+        )
+
+    return EcoRecommendations(
+        generated_at=utcnow(),
+        provider="offline-fallback",
+        model=None,
+        facts=facts,
+        recommendations=fallback_recommendations(facts),
+    )
 
 
 @router.get("/business/forecast", response_model=BusinessForecast)

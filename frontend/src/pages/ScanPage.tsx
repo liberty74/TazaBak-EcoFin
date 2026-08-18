@@ -3,7 +3,7 @@ import { Camera, Upload, X, CheckCircle, Loader2, AlertTriangle, RefreshCw, Arro
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
-import { analyzeBio, BioResponse } from '../api';
+import { analyzeBio, BioResponse, BreadDecision } from '../api';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys, handleApiError } from '../api';
 import { QRCodeSVG } from 'qrcode.react';
@@ -13,6 +13,13 @@ const RESULT_QR_CODES: Record<BioResponse['status'], string> = {
   approve: 'good123',
   reject: 'bad456',
   invalid: 'none000',
+};
+
+// Три описания, с которыми CLIP сравнивает фотографию.
+const DECISION_LABELS: Record<BreadDecision, string> = {
+  fresh_bread: 'Свежий хлеб',
+  moldy_bread: 'Хлеб с плесенью',
+  no_bread: 'Хлеба нет в кадре',
 };
 
 export default function ScanPage() {
@@ -249,7 +256,11 @@ export default function ScanPage() {
                   </div>
                   <h2 className="text-2xl font-bold text-warning mb-2">Не удалось распознать</h2>
                   <p className="text-warning/80 mb-6 font-medium">
-                    {result.reason === 'not_bread' ? 'На фото не найден хлеб. Убедитесь, что хлеб хорошо видно и он без пакета.' : 'Объект не найден в кадре. Сделайте фото при хорошем освещении.'}
+                    {result.reason === 'not_bread'
+                      ? 'На фото не найден хлеб. Убедитесь, что хлеб хорошо видно и он без пакета.'
+                      : result.reason === 'low_confidence'
+                        ? 'Модель не смогла уверенно отличить свежий хлеб от испорченного, поэтому баллы не начислены. Сфотографируйте хлеб крупнее и при хорошем освещении.'
+                        : 'Объект не найден в кадре. Сделайте фото при хорошем освещении.'}
                   </p>
                   <button onClick={resetState} className="w-full bg-warning text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2">
                     <Camera className="w-4 h-4" />
@@ -274,16 +285,27 @@ export default function ScanPage() {
                 </p>
               </div>
               
-              {/* Optional: Collapsible debug info */}
-              {result.detected_objects && result.detected_objects.length > 0 && (
+              {/* На что модель сравнила фото и насколько уверенно */}
+              {result.classification && (
                 <div className="mt-4 rounded-xl bg-muted p-4 text-left">
-                  <p className="mb-2 text-xs font-bold uppercase text-muted-foreground">AI-детали:</p>
-                  {result.detected_objects.map((obj, i) => (
-                    <div key={i} className="flex justify-between text-xs text-foreground/80">
-                      <span>{obj.label}</span>
-                      <span>{(obj.confidence * 100).toFixed(1)}%</span>
-                    </div>
-                  ))}
+                  <p className="mb-2 text-xs font-bold uppercase text-muted-foreground">
+                    Оценка модели:
+                  </p>
+                  {(Object.entries(DECISION_LABELS) as [BreadDecision, string][]).map(
+                    ([decision, label]) => (
+                      <div key={decision} className="flex justify-between text-xs text-foreground/80">
+                        <span className={decision === result.classification!.decision ? 'font-bold text-foreground' : undefined}>
+                          {label}
+                        </span>
+                        <span className={decision === result.classification!.decision ? 'font-bold text-foreground' : undefined}>
+                          {((result.classification!.probabilities[decision] ?? 0) * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    ),
+                  )}
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    CLIP zero-shot · {result.classification.model}
+                  </p>
                 </div>
               )}
             </motion.div>

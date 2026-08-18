@@ -118,7 +118,7 @@ def apply_compatibility_migrations() -> None:
             row["name"]
             for row in connection.execute(text("PRAGMA table_info(devices)")).mappings()
         }
-        if "camera_stream_url" not in device_columns:
+        if device_columns and "camera_stream_url" not in device_columns:
             connection.execute(text("ALTER TABLE devices ADD COLUMN camera_stream_url VARCHAR(512)"))
             logger.info("Applied SQLite migration: devices.camera_stream_url")
 
@@ -131,3 +131,18 @@ def apply_compatibility_migrations() -> None:
                 text("ALTER TABLE vision_frames ADD COLUMN detections JSON NOT NULL DEFAULT '[]'")
             )
             logger.info("Applied SQLite migration: vision_frames.detections")
+
+        bio_columns = {
+            row["name"]
+            for row in connection.execute(text("PRAGMA table_info(bio_analyses)")).mappings()
+        }
+        if bio_columns and "classification" not in bio_columns:
+            # Analyses recorded before CLIP keep an empty object: they were
+            # decided by the old COCO rule and must not look like CLIP results.
+            connection.execute(
+                text(
+                    "ALTER TABLE bio_analyses "
+                    "ADD COLUMN classification JSON NOT NULL DEFAULT '{}'"
+                )
+            )
+            logger.info("Applied SQLite migration: bio_analyses.classification")

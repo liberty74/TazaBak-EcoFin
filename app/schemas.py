@@ -45,6 +45,12 @@ class TelemetryResponse(BaseModel):
     received_at: datetime
 
 
+class DetectedObjectResponse(BaseModel):
+    label: str
+    confidence: float = Field(ge=0, le=1)
+    bounding_box: list[float] = Field(min_length=4, max_length=4)
+
+
 class VisionResponse(BaseModel):
     status: Literal["processed"] = "processed"
     frame_id: int
@@ -52,14 +58,24 @@ class VisionResponse(BaseModel):
     detected: bool
     object_label: Literal["illegal_dump"] | None = None
     confidence: float | None = None
+    # Every object the detector found, so the alert can be reviewed instead of
+    # trusted: the stored frame is unmodified and boxes are drawn from here.
+    detected_objects: list[DetectedObjectResponse] = Field(default_factory=list)
     alert_id: int | None = None
     image_url: str
 
 
-class DetectedObjectResponse(BaseModel):
-    label: str
+class BreadClassificationResponse(BaseModel):
+    """What CLIP compared the photo against, and how strongly it matched.
+
+    The probabilities are part of the answer on purpose: a resident whose
+    bread was rejected can see how close the call was.
+    """
+
+    decision: Literal["fresh_bread", "moldy_bread", "no_bread"]
     confidence: float = Field(ge=0, le=1)
-    bounding_box: list[float] = Field(min_length=4, max_length=4)
+    probabilities: dict[str, float]
+    model: str
 
 
 class BioResponse(BaseModel):
@@ -69,11 +85,14 @@ class BioResponse(BaseModel):
     points_awarded: int
     current_balance: int
     detected_objects: list[DetectedObjectResponse]
+    classification: BreadClassificationResponse | None = None
     user_id: int
     image_url: str | None = None
     command_sent: bool = False
     action_triggered: Literal["OPEN_LID"] | None = None
-    reason: Literal["mold_detected", "not_bread", "empty_frame"] | None = None
+    reason: (
+        Literal["mold_detected", "not_bread", "empty_frame", "low_confidence"] | None
+    ) = None
 
 
 class DispatchAlert(BaseModel):
@@ -633,6 +652,25 @@ class SchoolClassStanding(BaseModel):
     accepted_items: int
     bread_kg: float
     bread_kzt: float
+
+
+class EcoRecommendation(BaseModel):
+    title: str = Field(min_length=1, max_length=160)
+    detail: str = Field(min_length=1, max_length=600)
+
+
+class EcoRecommendations(BaseModel):
+    """Advice for tomorrow, together with the numbers it was allowed to use.
+
+    ``facts`` is not decoration: the recommendations are machine-checked
+    against it, and returning it lets anyone repeat that check.
+    """
+
+    generated_at: datetime
+    provider: Literal["google-gemini", "offline-fallback"]
+    model: str | None = None
+    facts: dict[str, Any]
+    recommendations: list[EcoRecommendation]
 
 
 class AIChatRequest(BaseModel):

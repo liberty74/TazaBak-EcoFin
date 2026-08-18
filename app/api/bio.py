@@ -1,4 +1,9 @@
-"""YOLOv8-powered, idempotent bread quality analysis endpoint."""
+"""Idempotent bread quality analysis endpoint.
+
+The verdict comes from CLIP zero-shot classification: COCO, which the object
+detector is trained on, has no class for bread and none for mold, so object
+detection cannot answer the question this endpoint is asked.
+"""
 
 from __future__ import annotations
 
@@ -16,7 +21,8 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.models import Alert, BioAnalysis, Device, DeviceCommand, User, utcnow
-from app.schemas import BioResponse, DEVICE_ID_PATTERN
+from app.schemas import BioResponse, BreadClassificationResponse, DEVICE_ID_PATTERN
+from app.services.clip_bread import ClipAnalysisError, bread_status, classify_bread
 from app.services.commands import record_delivery
 from app.services.device_locks import serialize_device
 from app.services.files import InvalidImageError, remove_stored_image, save_image_upload
@@ -24,7 +30,6 @@ from app.services.points import credit_points
 from app.services.telemetry import DeviceKindConflictError, get_or_create_device
 from app.services.users import find_user
 from app.services.websocket import send_device_command
-from app.services.yolo import YoloAnalysisError, classify_detections, detect_objects
 
 
 logger = logging.getLogger(__name__)
@@ -42,14 +47,24 @@ def _unique_qr_code(db: Session, prefix: str) -> str:
     raise RuntimeError("Could not allocate a unique QR code")
 
 
-def _status_metadata(
-    analysis_status: str,
-) -> tuple[str, int, Literal["mold_detected", "not_bread"] | None]:
+def _status_metadata(analysis_status: str) -> tuple[str, int]:
+    """QR prefix and reward that belong to a decision."""
+
     if analysis_status == "approve":
-        return "GOOD", settings.bio_reward_points, None
+        return "GOOD", settings.bio_reward_points
     if analysis_status == "reject":
-        return "BAD", 0, "mold_detected"
-    return "NONE", 0, "not_bread"
+        return "BAD", 0
+    return "NONE", 0
+
+
+def _classification_response(
+    stored: dict[str, object] | None,
+) -> BreadClassificationResponse | None:
+    """Analyses recorded before CLIP have no probabilities to report."""
+
+    if not stored:
+        return None
+    return BreadClassificationResponse.model_validate(stored)
 
 
 def _unresolved_fire_exists(db: Session, device_id: str) -> bool:
@@ -103,6 +118,7 @@ def _response_for_analysis(
         points_awarded=analysis.points,
         current_balance=current_balance,
         detected_objects=analysis.detected_objects,
+        classification=_classification_response(analysis.classification),
         user_id=analysis.user_id,
         image_url=(
             f"/static/{analysis.image_path}" if analysis.image_path is not None else None
@@ -134,7 +150,8 @@ def _persist_empty_analysis(
         qr_code=_unique_qr_code(db, "NONE"),
         idempotency_key=operation_key,
         detected_objects=[],
-        model_name=settings.yolo_model_path,
+        classification={},
+        model_name=settings.clip_model_name,
     )
     db.add(analysis)
     db.commit()
@@ -235,18 +252,21 @@ async def analyze_bio_image(
 
     db.rollback()
 
+    # Inference is CPU-bound and synchronous; keep it off the event loop.
     try:
-        detections = await run_in_threadpool(detect_objects, stored.absolute_path)
-    except YoloAnalysisError as exc:
+        classification = await run_in_threadpool(
+            classify_bread, stored.absolute_path
+        )
+    except ClipAnalysisError as exc:
         remove_stored_image(stored)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Image analysis service is unavailable",
         ) from exc
 
-    analysis_status, _ = classify_detections(detections)
-    qr_prefix, points, reason = _status_metadata(analysis_status)
-    detection_payload = [detected.to_dict() for detected in detections]
+    analysis_status, reason = bread_status(classification)
+    qr_prefix, points = _status_metadata(analysis_status)
+    classification_payload = classification.to_dict()
     command: DeviceCommand | None = None
 
     try:
@@ -281,8 +301,9 @@ async def analyze_bio_image(
             reason=reason,
             qr_code=_unique_qr_code(db, qr_prefix),
             idempotency_key=operation_key,
-            detected_objects=detection_payload,
-            model_name=settings.yolo_model_path,
+            detected_objects=[],
+            classification=classification_payload,
+            model_name=classification.model,
         )
         db.add(analysis)
         db.flush()
@@ -371,11 +392,13 @@ async def analyze_bio_image(
                     logger.exception("Could not persist OPEN_LID delivery state")
 
     logger.info(
-        "Bio analysis completed device=%s status=%s analysis_id=%s detections=%s",
+        "Bio analysis completed device=%s status=%s analysis_id=%s "
+        "decision=%s confidence=%.3f",
         device_id,
         analysis_status,
         analysis.id,
-        len(detections),
+        classification.decision,
+        classification.confidence,
     )
     return BioResponse(
         analysis_id=analysis.id,
@@ -383,7 +406,8 @@ async def analyze_bio_image(
         qr_code=analysis.qr_code,
         points_awarded=points,
         current_balance=balance,
-        detected_objects=detection_payload,
+        detected_objects=[],
+        classification=_classification_response(classification_payload),
         user_id=user.id,
         image_url=stored.public_url,
         command_sent=command_sent,

@@ -171,13 +171,20 @@ def classify_illegal_dump(
     )
 
 
-def _latest_or_new_alert(
+def record_illegal_dump_alert(
     db: Session,
     device: Device,
     evidence_path: str,
     detections: list[dict[str, object]],
     confidence: float | None,
 ) -> Alert | None:
+    """Open or refresh one illegal-dump incident for a device.
+
+    Shared by both frame sources — the ESP32-CAM polling worker and the
+    uploaded-frame endpoint — so a camera pushing frames every few seconds
+    cannot bury the dispatcher under duplicates of the same incident.
+    """
+
     unresolved = db.scalar(
         select(Alert)
         .where(
@@ -273,7 +280,7 @@ def analyze_camera_device(db: Session, device: Device) -> VisionFrame:
 
         alert = None
         if illegal_dump:
-            alert = _latest_or_new_alert(
+            alert = record_illegal_dump_alert(
                 db,
                 device,
                 relative_path,

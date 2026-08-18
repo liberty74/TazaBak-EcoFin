@@ -92,6 +92,15 @@ export interface DetectedObject {
   bounding_box: [number, number, number, number];
 }
 
+export type BreadDecision = "fresh_bread" | "moldy_bread" | "no_bread";
+
+export interface BreadClassification {
+  decision: BreadDecision;
+  confidence: number;
+  probabilities: Record<BreadDecision, number>;
+  model: string;
+}
+
 export interface BioResponse {
   analysis_id: number;
   status: "approve" | "reject" | "invalid";
@@ -99,11 +108,12 @@ export interface BioResponse {
   points_awarded: number;
   current_balance: number;
   detected_objects: DetectedObject[];
+  classification: BreadClassification | null;
   user_id: number;
   image_url: string | null;
   command_sent: boolean;
   action_triggered: "OPEN_LID" | null;
-  reason: "mold_detected" | "not_bread" | "empty_frame" | null;
+  reason: "mold_detected" | "not_bread" | "empty_frame" | "low_confidence" | null;
 }
 
 export interface DispatchAlert {

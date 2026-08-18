@@ -145,16 +145,3 @@ def save_annotated_image(
 
     destination_path.parent.mkdir(parents=True, exist_ok=True)
     image.save(destination_path, format="JPEG", quality=88, optimize=True)
-
-
-def classify_detections(
-    detections: list[DetectedObject],
-) -> tuple[str, str | None]:
-    labels = {detection.label.casefold() for detection in detections}
-    mold_classes = {label.casefold() for label in settings.yolo_mold_classes}
-    bread_classes = {label.casefold() for label in settings.yolo_bread_classes}
-    if labels & mold_classes:
-        return "reject", "mold_detected"
-    if labels & bread_classes:
-        return "approve", None
-    return "invalid", "not_bread"

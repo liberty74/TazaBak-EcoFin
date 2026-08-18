@@ -102,9 +102,6 @@ class Settings:
     gemini_timeout_seconds: float = _env_float("GEMINI_TIMEOUT_SECONDS", 15.0)
     gemini_max_output_tokens: int = _env_int("GEMINI_MAX_OUTPUT_TOKENS", 500)
 
-    vision_detection_probability: float = _env_float(
-        "VISION_DETECTION_PROBABILITY", 0.35
-    )
     camera_analysis_enabled: bool = _env_bool("CAMERA_ANALYSIS_ENABLED", True)
     camera_analysis_interval_seconds: float = _env_float(
         "CAMERA_ANALYSIS_INTERVAL_SECONDS", 5.0
@@ -149,12 +146,11 @@ class Settings:
     yolo_model_path: str = os.getenv("YOLO_MODEL_PATH", "yolov8n.pt")
     yolo_confidence: float = _env_float("YOLO_CONFIDENCE", 0.25)
     yolo_device: str = os.getenv("YOLO_DEVICE", "cpu")
-    yolo_bread_classes: tuple[str, ...] = _env_csv(
-        "YOLO_BREAD_CLASSES", ("sandwich", "cake", "donut", "pizza", "hot dog")
-    )
-    yolo_mold_classes: tuple[str, ...] = _env_csv(
-        "YOLO_MOLD_CLASSES", ("broccoli", "dining table")
-    )
+    # Bread quality is decided by CLIP, not by COCO classes: the dataset
+    # YOLOv8 is trained on contains neither bread nor mold.
+    clip_model_name: str = os.getenv("CLIP_MODEL_NAME", "openai/clip-vit-base-patch32")
+    # Below this probability the photo is not judged at all and earns nothing.
+    clip_min_confidence: float = _env_float("CLIP_MIN_CONFIDENCE", 0.5)
 
     def __post_init__(self) -> None:
         if self.h_empty_cm <= self.h_full_cm:
@@ -194,11 +190,13 @@ class Settings:
             raise ValueError("NFT_PRICE_POINTS must be positive")
         if not 0.0 < self.yolo_confidence <= 1.0:
             raise ValueError("YOLO_CONFIDENCE must be in the (0, 1] interval")
-        for name, probability in (
-            ("VISION_DETECTION_PROBABILITY", self.vision_detection_probability),
-        ):
-            if not 0.0 <= probability <= 1.0:
-                raise ValueError(f"{name} must be in the [0, 1] interval")
+        if not self.clip_model_name.strip():
+            raise ValueError("CLIP_MODEL_NAME must not be empty")
+        # A three-way decision is never less certain than 1/3 by construction.
+        if not (1 / 3) <= self.clip_min_confidence <= 1.0:
+            raise ValueError(
+                "CLIP_MIN_CONFIDENCE must be in the [0.34, 1] interval"
+            )
         if self.camera_analysis_interval_seconds < 1:
             raise ValueError("CAMERA_ANALYSIS_INTERVAL_SECONDS must be at least 1")
         if self.camera_capture_timeout_seconds <= 0:
