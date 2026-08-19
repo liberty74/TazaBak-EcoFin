@@ -3,6 +3,7 @@ export * from './client';
 export * from './queryKeys';
 export * from './users';
 export * from './containers';
+export * from './eco';
 export * from './bio';
 export * from './shop';
 export * from './volunteer';

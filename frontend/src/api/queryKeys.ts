@@ -16,6 +16,17 @@ export const queryKeys = {
   community: {
     messages: (limit: number) => ['communityMessages', limit] as const,
   },
+  eco: {
+    savings: (days: number) => ['ecoSavings', days] as const,
+    forecast: ['ecoForecast'] as const,
+    route: (horizonHours: number) => ['ecoRoute', horizonHours] as const,
+    recommendations: (days: number) => ['ecoRecommendations', days] as const,
+    businessForecast: (target: string | undefined, weeks: number) =>
+      ['ecoBusinessForecast', target, weeks] as const,
+    profile: ['ecoProfile'] as const,
+    writeOffs: (limit: number) => ['ecoWriteOffs', limit] as const,
+    schools: (limit: number) => ['ecoSchools', limit] as const,
+  },
   dispatcher: {
     summary: ['dispatcherSummary'] as const,
     briefing: ['dispatcherBriefing'] as const,

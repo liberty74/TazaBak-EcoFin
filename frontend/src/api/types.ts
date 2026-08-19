@@ -231,6 +231,231 @@ export interface ResolveAlertResponse {
   resolved_at: string;
 }
 
+/* ---------------------------------------------------------------------------
+ * EcoFin — экономический слой
+ * ------------------------------------------------------------------------- */
+
+export interface EcoTrips {
+  baseline: number;
+  actual: number;
+  saved: number;
+  reduction_percent: number;
+  average_fill_at_collection_percent: number | null;
+}
+
+export interface EcoResources {
+  km_saved: number;
+  liters_saved: number;
+  co2_kg_saved: number;
+}
+
+export interface EcoMoney {
+  fuel_kzt: number;
+  crew_kzt: number;
+  total_kzt: number;
+}
+
+/** Стоимость спасённого продукта. Лежит отдельно от денег оператора и
+ *  никогда к ним не прибавляется: продукт уже списан, пекарне он не вернётся. */
+export interface EcoBread {
+  kg_from_citizens: number;
+  kg_from_business: number;
+  kg_total: number;
+  rescued_value_kzt: number;
+}
+
+export interface EcoPayback {
+  monthly_savings_kzt: number;
+  monthly_subscription_kzt: number;
+  net_monthly_kzt: number;
+  install_total_kzt: number;
+  payback_months: number | null;
+}
+
+export interface EcoWeeklyPoint {
+  week_start: string;
+  trips_saved: number;
+  kzt_saved: number;
+  co2_kg_saved: number;
+  /** Неделя ещё не закончилась: её нельзя сравнивать с полными. */
+  is_partial: boolean;
+}
+
+/** Все входные величины расчёта — по ним раскрывается блок «Откуда цифра». */
+export interface EcoFormulaInputs {
+  days: number;
+  containers: number;
+  km_per_stop: number;
+  minutes_per_stop: number;
+  fuel_consumption_l_per_100km: number;
+  fuel_price_kzt_per_liter: number;
+  crew_cost_kzt_per_hour: number;
+  baseline_trips_per_week: number;
+  co2_kg_per_liter: number;
+  km_per_saved_stop: number;
+  liters_per_saved_stop: number;
+  kzt_per_saved_stop: number;
+}
+
+export interface SavingsReport {
+  generated_at: string;
+  period_start: string;
+  period_end: string;
+  profile_id: number;
+  org_name: string;
+  city: string;
+  containers: number;
+  trips: EcoTrips;
+  resources: EcoResources;
+  money: EcoMoney;
+  bread: EcoBread;
+  payback: EcoPayback;
+  weekly: EcoWeeklyPoint[];
+  formula: EcoFormulaInputs;
+}
+
+export interface ContainerForecast {
+  container_id: number;
+  device_id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  fill_percent: number;
+  threshold_percent: number;
+  samples: number;
+  status: 'due_now' | 'forecast' | 'unavailable';
+  rate_percent_per_hour: number | null;
+  r_squared: number | null;
+  eta_hours: number | null;
+  eta_at: string | null;
+  reason: 'not_enough_measurements' | 'not_filling' | null;
+}
+
+export interface RouteScenario {
+  label: string;
+  stops: number;
+  distance_km: number;
+  liters: number;
+  kzt: number;
+}
+
+export interface RouteLeg {
+  position: number;
+  from_label: string;
+  to_label: string;
+  container_id: number | null;
+  distance_km: number;
+}
+
+export interface RoutePlan {
+  generated_at: string;
+  horizon_hours: number;
+  baseline: RouteScenario;
+  planned: RouteScenario;
+  distance_saved_km: number;
+  liters_saved: number;
+  kzt_saved: number;
+  co2_kg_saved: number;
+  legs: RouteLeg[];
+  skipped: string[];
+}
+
+export interface ProductForecast {
+  product: string;
+  expected_kg: number;
+  average_kg: number;
+  deviation_percent: number;
+  samples: number;
+  /** same_weekday — прогноз по тому же дню недели; all_days — истории по нему
+   *  ещё нет, и ответ честно помечается усреднением по всем дням. */
+  basis: 'same_weekday' | 'all_days';
+}
+
+export interface WeekdayProfile {
+  weekday: number;
+  name: string;
+  average_kg: number;
+  samples: number;
+}
+
+export interface BusinessForecast {
+  profile_id: number;
+  org_name: string;
+  target_date: string;
+  target_weekday: string;
+  lookback_weeks: number;
+  products: ProductForecast[];
+  weekday_profile: WeekdayProfile[];
+  history_days: number;
+  total_written_off_kg: number;
+  total_donated_kg: number;
+  donation_rate_percent: number;
+  rescued_value_kzt: number;
+}
+
+export interface SchoolClassStanding {
+  school_class: string;
+  pupils: number;
+  points: number;
+  accepted_items: number;
+  bread_kg: number;
+  bread_kzt: number;
+}
+
+export interface EcoCostProfile {
+  id: number;
+  org_name: string;
+  city: string;
+  km_per_stop: number;
+  minutes_per_stop: number;
+  fuel_consumption_l_per_100km: number;
+  fuel_price_kzt_per_liter: number;
+  crew_cost_kzt_per_hour: number;
+  baseline_trips_per_week: number;
+  fill_threshold_percent: number;
+  co2_kg_per_liter: number;
+  bread_avg_weight_kg: number;
+  bread_cost_kzt_per_kg: number;
+  install_price_kzt: number;
+  subscription_kzt_per_month: number;
+  updated_at: string;
+}
+
+export interface WriteOffCreate {
+  occurred_on: string;
+  product: string;
+  kg_written_off: number;
+  kg_donated: number;
+  cost_kzt_per_kg: number;
+}
+
+export interface WriteOffRecord {
+  id: number;
+  profile_id: number;
+  occurred_on: string;
+  product: string;
+  kg_written_off: number;
+  kg_donated: number;
+  cost_kzt_per_kg: number;
+  updated_at: string;
+}
+
+export interface EcoRecommendation {
+  title: string;
+  detail: string;
+}
+
+export interface EcoRecommendations {
+  generated_at: string;
+  provider: 'google-gemini' | 'offline-fallback';
+  model: string | null;
+  /** Числа, которые модели разрешили использовать. Рекомендации сверяются
+   *  с ними на бэкенде, а поле возвращается, чтобы проверку можно было
+   *  повторить руками. */
+  facts: Record<string, unknown>;
+  recommendations: EcoRecommendation[];
+}
+
 export interface FastAPIValidationError {
   loc: (string | number)[];
   msg: string;
