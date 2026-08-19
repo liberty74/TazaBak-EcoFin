@@ -20,6 +20,8 @@ const AssistantPage = lazy(() => import('./pages/AssistantPage'));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const CollectionPage = lazy(() => import('./pages/CollectionPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const SavingsPage = lazy(() => import('./pages/dispatcher/SavingsPage'));
+const BakeryPage = lazy(() => import('./pages/dispatcher/BakeryPage'));
 const DashboardPage = lazy(() => import('./pages/dispatcher/DashboardPage'));
 const DispatcherMapPage = lazy(() => import('./pages/dispatcher/DispatcherMapPage'));
 const AlertsPage = lazy(() => import('./pages/dispatcher/AlertsPage'));
@@ -67,7 +69,10 @@ export default function App() {
               {/* Dispatcher Routes */}
               <Route element={<ProtectedRoute allowedRoles={['dispatcher']} />}>
                 <Route path="/dispatcher" element={<DispatcherKeyGate><DispatcherLayout /></DispatcherKeyGate>}>
-                  <Route index element={<DashboardPage />} />
+                  {/* Трек EcoFin ищет деньги — экономика открывается первой */}
+                  <Route index element={<SavingsPage />} />
+                  <Route path="overview" element={<DashboardPage />} />
+                  <Route path="bakery" element={<BakeryPage />} />
                   <Route path="map" element={<DispatcherMapPage />} />
                   <Route path="alerts" element={<AlertsPage />} />
                   <Route path="devices" element={<DevicesPage />} />
