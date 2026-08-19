@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Map as MapIcon, AlertTriangle, RadioReceiver, LogOut, Settings, Globe, Users, Menu, X, Wifi, WifiOff, Coins, Wheat } from 'lucide-react';
+import { LayoutDashboard, Map as MapIcon, AlertTriangle, RadioReceiver, LogOut, Settings, Globe, Users, Menu, X, Wifi, WifiOff, Coins, Wheat, TrendingUp } from 'lucide-react';
 import { useAuth } from '../../store/AuthContext';
 import { useLocaleTheme } from '../../store/LocaleThemeContext';
 import { cn } from '../../lib/utils';
@@ -84,6 +84,19 @@ export default function DispatcherLayout() {
           >
             <Coins className="w-5 h-5" />
             <span>Экономия</span>
+          </NavLink>
+
+          <NavLink
+            to="/dispatcher/revenue"
+            className={({ isActive }) => cn(
+              "flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors",
+              isActive
+                ? "bg-primary text-white"
+                : "text-foreground/70 hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <TrendingUp className="w-5 h-5" />
+            <span>Доходы</span>
           </NavLink>
 
           <NavLink
@@ -252,6 +265,9 @@ export default function DispatcherLayout() {
                 <button aria-label="Закрыть меню" onClick={() => setMobileMenuOpen(false)} className="rounded-full bg-muted p-2"><X className="h-5 w-5" /></button>
               </div>
               <div className="grid grid-cols-2 gap-2">
+                <NavLink to="/dispatcher/revenue" className={({ isActive }) => cn("rounded-2xl border p-4", isActive ? "border-primary bg-primary/10 text-primary" : "border-border bg-background")}>
+                  <TrendingUp className="mb-2 h-5 w-5" /><p className="font-bold">Доходы</p><p className="mt-1 text-xs text-muted-foreground">На чём зарабатываем</p>
+                </NavLink>
                 <NavLink to="/dispatcher/bakery" className={({ isActive }) => cn("rounded-2xl border p-4", isActive ? "border-primary bg-primary/10 text-primary" : "border-border bg-background")}>
                   <Wheat className="mb-2 h-5 w-5" /><p className="font-bold">Пекарня</p><p className="mt-1 text-xs text-muted-foreground">Списания и прогноз</p>
                 </NavLink>
@@ -317,7 +333,7 @@ export default function DispatcherLayout() {
             <RadioReceiver className="w-5 h-5 mb-1" />
             <span className="text-[10px] font-semibold">Баки</span>
           </NavLink>
-          <button onClick={() => setMobileMenuOpen((open) => !open)} aria-expanded={mobileMenuOpen} aria-label="Открыть меню диспетчера" className={cn("flex h-16 min-w-0 flex-1 flex-col items-center justify-center transition-colors", mobileMenuOpen || ['/dispatcher/volunteer', '/dispatcher/settings', '/dispatcher/bakery', '/dispatcher/overview'].includes(location.pathname) ? "text-primary" : "text-foreground/50")}>
+          <button onClick={() => setMobileMenuOpen((open) => !open)} aria-expanded={mobileMenuOpen} aria-label="Открыть меню диспетчера" className={cn("flex h-16 min-w-0 flex-1 flex-col items-center justify-center transition-colors", mobileMenuOpen || ['/dispatcher/volunteer', '/dispatcher/settings', '/dispatcher/bakery', '/dispatcher/revenue', '/dispatcher/overview'].includes(location.pathname) ? "text-primary" : "text-foreground/50")}>
             <Menu className="mb-1 h-5 w-5" />
             <span className="text-[10px] font-semibold">Меню</span>
           </button>

@@ -21,6 +21,7 @@ const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const CollectionPage = lazy(() => import('./pages/CollectionPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const SavingsPage = lazy(() => import('./pages/dispatcher/SavingsPage'));
+const RevenuePage = lazy(() => import('./pages/dispatcher/RevenuePage'));
 const BakeryPage = lazy(() => import('./pages/dispatcher/BakeryPage'));
 const DashboardPage = lazy(() => import('./pages/dispatcher/DashboardPage'));
 const DispatcherMapPage = lazy(() => import('./pages/dispatcher/DispatcherMapPage'));
@@ -71,6 +72,7 @@ export default function App() {
                 <Route path="/dispatcher" element={<DispatcherKeyGate><DispatcherLayout /></DispatcherKeyGate>}>
                   {/* Трек EcoFin ищет деньги — экономика открывается первой */}
                   <Route index element={<SavingsPage />} />
+                  <Route path="revenue" element={<RevenuePage />} />
                   <Route path="overview" element={<DashboardPage />} />
                   <Route path="bakery" element={<BakeryPage />} />
                   <Route path="map" element={<DispatcherMapPage />} />
