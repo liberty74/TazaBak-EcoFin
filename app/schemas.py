@@ -450,6 +450,10 @@ class EcoWeeklyPoint(BaseModel):
     trips_saved: float
     kzt_saved: float
     co2_kg_saved: float
+    # Последняя корзина периода почти всегда короче семи дней. Без этой
+    # пометки график падал бы на ней в пол и читался как обвал экономии,
+    # хотя неделя просто ещё не закончилась.
+    is_partial: bool = False
 
 
 class EcoFormulaInputs(BaseModel):

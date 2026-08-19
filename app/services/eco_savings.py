@@ -196,6 +196,9 @@ def _weekly_breakdown(
                 co2_kg_saved=round(
                     saved * cost.liters * profile.co2_kg_per_liter, 2
                 ),
+                # Неполная неделя набирает меньше экономии просто потому, что
+                # ещё идёт. Помечаем, чтобы её не сравнивали с полными.
+                is_partial=bucket_days < 7.0 - 1e-9,
             )
         )
         bucket_start = bucket_end

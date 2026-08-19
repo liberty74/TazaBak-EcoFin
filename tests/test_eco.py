@@ -207,6 +207,36 @@ def test_weekly_breakdown_covers_the_whole_period(api) -> None:
     )
 
 
+def test_only_the_unfinished_week_is_marked_partial(api) -> None:
+    """Неполная корзина набирает меньше просто потому, что ещё идёт.
+
+    Без пометки график падал бы на ней в пол, и это читалось бы как обвал
+    экономии вместо «неделя ещё не закончилась».
+    """
+
+    _, session_factory, _ = api
+
+    with session_factory() as db:
+        profile = get_profile(db)
+        period_end = utcnow()
+        ragged = build_savings_report(
+            db, profile, period_end - timedelta(days=30), period_end
+        )
+        whole_weeks = build_savings_report(
+            db, profile, period_end - timedelta(days=28), period_end
+        )
+
+    assert [point.is_partial for point in ragged.weekly] == [
+        False,
+        False,
+        False,
+        False,
+        True,
+    ]
+    # Двадцать восемь дней делятся на недели без остатка — помечать нечего.
+    assert not any(point.is_partial for point in whole_weeks.weekly)
+
+
 def test_payback_subtracts_subscription_before_dividing(api) -> None:
     _, session_factory, _ = api
 
