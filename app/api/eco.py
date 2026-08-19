@@ -32,6 +32,7 @@ from app.schemas import (
     EcoCostProfileUpdate,
     EcoRecommendation,
     EcoRecommendations,
+    RevenueModel,
     RoutePlan,
     SavingsReport,
     SavingsSnapshotResponse,
@@ -51,6 +52,7 @@ from app.services.eco_advisor import (
 )
 from app.services.eco_business import forecast_write_offs, school_standings
 from app.services.eco_forecast import forecast_all
+from app.services.eco_revenue import build_revenue_model
 from app.services.eco_route import build_route_plan
 from app.services.eco_savings import (
     ProfileNotConfiguredError,
@@ -101,6 +103,39 @@ def savings(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Savings report is temporarily unavailable",
+        ) from exc
+
+
+@public_router.get("/revenue", response_model=RevenueModel)
+def revenue(
+    days: Annotated[int, Query(ge=1, le=365)] = 30,
+    projection_containers: Annotated[int | None, Query(gt=0, le=100_000)] = None,
+    profile_id: Annotated[int | None, Query(gt=0)] = None,
+    db: Session = Depends(get_db),
+) -> RevenueModel:
+    """Where the platform earns: five streams, each from measured rows.
+
+    Public on purpose — the business model is an argument, not a secret, and
+    every figure here is already derivable from the public savings report.
+    """
+
+    profile = _profile_or_404(db, profile_id)
+    period_start, period_end = report_period(days)
+    try:
+        report = build_savings_report(db, profile, period_start, period_end)
+        return build_revenue_model(
+            db,
+            profile,
+            report,
+            period_start,
+            period_end,
+            projection_containers=projection_containers,
+        )
+    except SQLAlchemyError as exc:
+        logger.exception("Could not build revenue model profile_id=%s", profile.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Revenue model is temporarily unavailable",
         ) from exc
 
 
