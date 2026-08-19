@@ -176,7 +176,7 @@ def _streams(profile: CostProfile, basis: RevenueBasis) -> list[RevenueStream]:
             * 100.0
         )
         business_note = (
-            f"Пекарня списывает {_kzt(basis.business_write_off_kzt_per_month)} ₸ "
+            f"Средняя пекарня списывает {_kzt(basis.business_write_off_kzt_per_month)} ₸ "
             f"в месяц. Тариф окупается, если прогноз сократит списания хотя бы "
             f"на {break_even:.1f}% — ниже этого порога брать деньги не за что."
         )
@@ -188,8 +188,8 @@ def _streams(profile: CostProfile, basis: RevenueBasis) -> list[RevenueStream]:
 
     carbon_note = (
         "Собственная система торговли квотами в Казахстане, цена на порядок ниже "
-        "европейской. На пилоте это шум: доход становится заметен там, где "
-        "тонны идут сотнями."
+        "европейской. Поток становится заметен только там, где тонны идут "
+        "сотнями."
     )
     if carbon > 0 and carbon < CARBON_MEANINGFUL_KZT_PER_MONTH:
         carbon_note += (
