@@ -1,0 +1,55 @@
+# TazaBAK EcoFin — полный стенд одной командой:
+#
+#   docker compose up --build
+#
+# Frontend  http://localhost:5173
+# Backend   http://localhost:8000/docs
+#
+# Первая сборка долгая: ставится torch и запекаются веса YOLO и CLIP. Дальше
+# всё берётся из слоёв Docker, и стенд поднимается за секунды.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tazabak-ecofin-backend
+    ports:
+      - "8000:8000"
+    environment:
+      # База лежит в томе, а не в слое образа: пересборка не должна стирать
+      # историю вывозов, на которой строится вся экономика.
+      DATABASE_URL: sqlite:////data/tazabak.db
+      APP_ENV: ${APP_ENV:-development}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      DISPATCHER_API_KEY: ${DISPATCHER_API_KEY:-123}
+      # Фронтенд ходит с другого порта, значит для браузера это чужой источник.
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      # Без ключа советы Баки собираются локальными правилами по тем же
+      # числам — стенд остаётся рабочим и без интернета.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      YOLO_DEVICE: cpu
+    volumes:
+      - tazabak-data:/data
+      - tazabak-static:/app/static
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Адрес, по которому backend виден из браузера, а не из сети Docker:
+        # запрос уходит со страницы, а не из контейнера frontend.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    image: tazabak-ecofin-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  tazabak-data:
+  tazabak-static:
