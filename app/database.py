@@ -114,6 +114,23 @@ def apply_compatibility_migrations() -> None:
             )
             logger.info("Applied SQLite migration: cost_profiles depot coordinates")
 
+        if profile_columns and "hardware_cost_kzt" not in profile_columns:
+            # Параметры выручки: себестоимость железа, тариф для бизнеса,
+            # цена углеродной единицы и ставка спонсора.
+            for column, default in (
+                ("hardware_cost_kzt", "21500.0"),
+                ("business_subscription_kzt_per_month", "9000.0"),
+                ("carbon_price_kzt_per_ton", "2500.0"),
+                ("sponsor_kzt_per_active_resident", "150.0"),
+            ):
+                connection.execute(
+                    text(
+                        "ALTER TABLE cost_profiles "
+                        f"ADD COLUMN {column} FLOAT NOT NULL DEFAULT {default}"
+                    )
+                )
+            logger.info("Applied SQLite migration: cost_profiles revenue parameters")
+
         device_columns = {
             row["name"]
             for row in connection.execute(text("PRAGMA table_info(devices)")).mappings()

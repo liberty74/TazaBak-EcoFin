@@ -449,6 +449,21 @@ class CostProfile(Base):
             "install_price_kzt >= 0", name="ck_cost_profiles_install_nonnegative"
         ),
         CheckConstraint(
+            "hardware_cost_kzt >= 0", name="ck_cost_profiles_hardware_nonnegative"
+        ),
+        CheckConstraint(
+            "business_subscription_kzt_per_month >= 0",
+            name="ck_cost_profiles_business_sub_nonnegative",
+        ),
+        CheckConstraint(
+            "carbon_price_kzt_per_ton >= 0",
+            name="ck_cost_profiles_carbon_price_nonnegative",
+        ),
+        CheckConstraint(
+            "sponsor_kzt_per_active_resident >= 0",
+            name="ck_cost_profiles_sponsor_nonnegative",
+        ),
+        CheckConstraint(
             "subscription_kzt_per_month >= 0",
             name="ck_cost_profiles_subscription_nonnegative",
         ),
@@ -492,10 +507,31 @@ class CostProfile(Base):
     )
 
     install_price_kzt: Mapped[float] = mapped_column(
-        Float, default=50_000.0, nullable=False
+        Float, default=28_000.0, nullable=False
     )
     subscription_kzt_per_month: Mapped[float] = mapped_column(
-        Float, default=5_000.0, nullable=False
+        Float, default=1_000.0, nullable=False
+    )
+
+    # Себестоимость комплекта на один бак. Разница с install_price_kzt —
+    # это наша маржа на железе, и она должна быть видна отдельно, а не
+    # прятаться внутри цены установки.
+    hardware_cost_kzt: Mapped[float] = mapped_column(
+        Float, default=21_500.0, nullable=False
+    )
+    # Тариф кабинета для пекарни, столовой или кафе.
+    business_subscription_kzt_per_month: Mapped[float] = mapped_column(
+        Float, default=9_000.0, nullable=False
+    )
+    # Цена углеродной единицы. В Казахстане работает своя система торговли
+    # квотами, и цена там на порядок ниже европейской — берём консервативно.
+    carbon_price_kzt_per_ton: Mapped[float] = mapped_column(
+        Float, default=2_500.0, nullable=False
+    )
+    # Сколько бренд платит за размещение награды в эко-магазине в расчёте
+    # на одного активного жителя в месяц.
+    sponsor_kzt_per_active_resident: Mapped[float] = mapped_column(
+        Float, default=150.0, nullable=False
     )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
