@@ -1,9 +1,31 @@
+# Что не должно попасть в контекст сборки.
 .git
+.github
 .venv
 __pycache__
 .pytest_cache
 *.pyc
 *.pt
+
+# Локальная база и WAL-файлы: в контейнере база живёт в томе.
 tazabak.db*
+
+# Загруженные пользователями изображения — не часть образа.
 static/bio/*
 static/vision/*
+
+# Секреты. Значения приходят через environment в compose.
+.env
+.env.*
+!.env.example
+
+# Внутренние документы команды.
+CONTEXT.md
+PLAN_ECOFIN.md
+
+# Фронтенд собирается своим Dockerfile со своим контекстом.
+frontend
+tests
+docs
+firmware
+scripts
