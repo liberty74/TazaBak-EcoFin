@@ -237,6 +237,34 @@ def test_only_the_unfinished_week_is_marked_partial(api) -> None:
     assert not any(point.is_partial for point in whole_weeks.weekly)
 
 
+def test_pilot_tariff_leaves_the_client_in_profit(api) -> None:
+    """Подписка не может стоить дороже экономии, которую она создаёт.
+
+    Тариф в сиде однажды был назначен без опоры на расчёт: 5 000 ₸ за бак
+    при экономии около 2 460 ₸ на бак. Оператор уходил в минус, срок
+    окупаемости не определялся, и это было видно на главном экране.
+    Тест закрепляет правило, а не конкретную цену.
+    """
+
+    _, session_factory, _ = api
+
+    with session_factory() as db:
+        profile = get_profile(db)
+        period_end = utcnow()
+        report = build_savings_report(
+            db, profile, period_end - timedelta(days=30), period_end
+        )
+
+    payback = report.payback
+    assert payback.monthly_savings_kzt > payback.monthly_subscription_kzt, (
+        "подписка съедает всю экономию — клиенту незачем покупать платформу"
+    )
+    assert payback.net_monthly_kzt > 0
+    assert payback.payback_months is not None
+    # Дольше пяти лет окупаемость перестаёт быть аргументом для акимата.
+    assert payback.payback_months < 60
+
+
 def test_payback_subtracts_subscription_before_dividing(api) -> None:
     _, session_factory, _ = api
 
