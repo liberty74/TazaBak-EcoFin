@@ -4,6 +4,7 @@ import type {
   ContainerForecast,
   EcoCostProfile,
   EcoRecommendations,
+  RevenueModel,
   RoutePlan,
   SavingsReport,
   SchoolClassStanding,
@@ -74,5 +75,17 @@ export const fetchWriteOffs = async (limit = 60): Promise<WriteOffRecord[]> => {
  *  цифры, а не удваивает их. */
 export const saveWriteOff = async (payload: WriteOffCreate): Promise<WriteOffRecord> => {
   const response = await apiClient.put<WriteOffRecord>('/api/eco/write-offs', payload);
+  return response.data;
+};
+
+/** Модель доходов. Публичная: бизнес-модель — аргумент, а не секрет.
+ *  Проекция приходит, только если запросили масштаб. */
+export const fetchRevenue = async (
+  days = 30,
+  projectionContainers?: number,
+): Promise<RevenueModel> => {
+  const params: Record<string, number> = { days };
+  if (projectionContainers) params.projection_containers = projectionContainers;
+  const response = await apiClient.get<RevenueModel>('/api/eco/revenue', { params });
   return response.data;
 };

@@ -297,6 +297,38 @@ export interface EcoFormulaInputs {
   kzt_per_saved_stop: number;
 }
 
+/** Один источник дохода вместе с арифметикой, которая его дала. */
+export interface RevenueStream {
+  key: string;
+  title: string;
+  monthly_kzt: number;
+  /** Строка вида «10 баков × 1 000 ₸» — число проверяется прямо на экране. */
+  basis: string;
+  note: string;
+  /** Маржа на железе разовая и не входит в регулярную выручку. */
+  is_recurring: boolean;
+}
+
+export interface RevenueScenario {
+  title: string;
+  containers: number;
+  streams: RevenueStream[];
+  monthly_recurring_kzt: number;
+  one_time_kzt: number;
+  annual_recurring_kzt: number;
+}
+
+export interface RevenueModel {
+  generated_at: string;
+  period_start: string;
+  period_end: string;
+  currency: string;
+  pilot: RevenueScenario;
+  /** Отсутствует, пока проекцию не запросили: её легко принять за факт. */
+  projection: RevenueScenario | null;
+  assumptions: string[];
+}
+
 export interface SavingsReport {
   generated_at: string;
   period_start: string;

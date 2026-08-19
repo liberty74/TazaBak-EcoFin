@@ -18,6 +18,8 @@ export const queryKeys = {
   },
   eco: {
     savings: (days: number) => ['ecoSavings', days] as const,
+    revenue: (days: number, projection: number | undefined) =>
+      ['ecoRevenue', days, projection] as const,
     forecast: ['ecoForecast'] as const,
     route: (horizonHours: number) => ['ecoRoute', horizonHours] as const,
     recommendations: (days: number) => ['ecoRecommendations', days] as const,
