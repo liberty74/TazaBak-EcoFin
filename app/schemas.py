@@ -380,6 +380,10 @@ class EcoCostProfileResponse(BaseModel):
     bread_cost_kzt_per_kg: float
     install_price_kzt: float
     subscription_kzt_per_month: float
+    hardware_cost_kzt: float
+    business_subscription_kzt_per_month: float
+    carbon_price_kzt_per_ton: float
+    sponsor_kzt_per_active_resident: float
     updated_at: datetime
 
 
@@ -400,6 +404,14 @@ class EcoCostProfileUpdate(BaseModel):
     bread_cost_kzt_per_kg: float | None = Field(default=None, ge=0, le=100_000)
     install_price_kzt: float | None = Field(default=None, ge=0, le=100_000_000)
     subscription_kzt_per_month: float | None = Field(default=None, ge=0, le=10_000_000)
+    hardware_cost_kzt: float | None = Field(default=None, ge=0, le=100_000_000)
+    business_subscription_kzt_per_month: float | None = Field(
+        default=None, ge=0, le=10_000_000
+    )
+    carbon_price_kzt_per_ton: float | None = Field(default=None, ge=0, le=1_000_000)
+    sponsor_kzt_per_active_resident: float | None = Field(
+        default=None, ge=0, le=1_000_000
+    )
 
 
 class EcoTrips(BaseModel):
@@ -488,6 +500,41 @@ class SavingsReport(BaseModel):
     payback: EcoPayback
     weekly: list[EcoWeeklyPoint]
     formula: EcoFormulaInputs
+
+
+class RevenueStream(BaseModel):
+    """One way the platform earns, with the arithmetic that produced it."""
+
+    key: str
+    title: str
+    monthly_kzt: float
+    # Строка вида «10 баков × 1 000 ₸» — чтобы число можно было проверить
+    # на экране, не открывая исходники.
+    basis: str
+    note: str
+    # Маржа на железе разовая, поэтому не попадает в регулярную выручку.
+    is_recurring: bool
+
+
+class RevenueScenario(BaseModel):
+    title: str
+    containers: int
+    streams: list[RevenueStream]
+    monthly_recurring_kzt: float
+    one_time_kzt: float
+    annual_recurring_kzt: float
+
+
+class RevenueModel(BaseModel):
+    generated_at: datetime
+    period_start: datetime
+    period_end: datetime
+    currency: str
+    pilot: RevenueScenario
+    # Проекция отделена от факта намеренно: выдать её за измерение —
+    # самый быстрый способ провалить техзащиту.
+    projection: RevenueScenario | None
+    assumptions: list[str]
 
 
 class CollectionEventResponse(BaseModel):
