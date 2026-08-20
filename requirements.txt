@@ -1,15 +1,10 @@
-fastapi>=0.115,<0.140
-pydantic>=2.8,<3.0
-SQLAlchemy>=2.0,<3.0
-# PostgreSQL: psycopg (v3), а не psycopg2 — DATABASE_URL нормализуется под
-# него в app/config.py, даже если в .env указано просто postgresql://.
-psycopg[binary]>=3.2,<4.0
-uvicorn[standard]>=0.30,<1.0
-python-multipart>=0.0.9,<1.0
-requests>=2.32,<3.0
-Pillow>=10.0,<13.0
+# Полный набор: ядро плюс модели, которые считают прямо на этой машине.
+#
+# Используется на ноутбуке, в Docker и в CI. В облаке ставится только
+# requirements-core.txt — причина указана там же.
+-r requirements-core.txt
+
+# YOLOv8 ищет посторонние навалы на кадре с ESP32-CAM.
 ultralytics>=8.3,<9.0
-# CLIP zero-shot для качества хлеба. torch приходит вместе с ultralytics.
+# CLIP zero-shot решает, годен ли хлеб. torch приходит вместе с ultralytics.
 transformers>=4.40,<5.0
-google-genai>=1.0,<2.0
-python-dotenv>=1.0,<2.0

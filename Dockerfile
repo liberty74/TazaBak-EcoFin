@@ -26,7 +26,7 @@ WORKDIR /app
 
 # Ставим CPU-сборку torch: образ с CUDA весит на несколько гигабайт больше,
 # а видеокарты в контейнере всё равно нет.
-COPY requirements.txt ./
+COPY requirements.txt requirements-core.txt ./
 RUN pip install --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         -r requirements.txt
