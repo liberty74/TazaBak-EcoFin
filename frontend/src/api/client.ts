@@ -1,8 +1,24 @@
 import axios from 'axios';
 
+/**
+ * Адрес API может прийти без схемы: Render подставляет в переменную сборки
+ * только имя хоста. Схему дописываем от самой страницы, иначе axios примет
+ * `tazabak-api.onrender.com` за относительный путь.
+ */
+const withPageProtocol = (value: string): string => {
+  if (/^https?:\/\//i.test(value)) return value;
+  return `${window.location.protocol}//${value.replace(/^\/+/, '')}`;
+};
+
 export const getApiBaseUrl = (): string => {
   const configuredUrl = localStorage.getItem('apiBaseUrl') || import.meta.env.VITE_API_BASE_URL;
-  if (configuredUrl) return configuredUrl;
+  if (configuredUrl) return withPageProtocol(configuredUrl.trim().replace(/\/+$/, ''));
+
+  // Страница по https не имеет права звать http-адрес: браузер отбросит
+  // запрос как смешанное содержимое, и это будет выглядеть как молчащий
+  // сервер. В облаке адрес задаётся переменной сборки; если её нет —
+  // считаем, что API живёт за тем же доменом.
+  if (window.location.protocol === 'https:') return window.location.origin;
 
   // When the UI is opened from a phone over Wi-Fi, 127.0.0.1 would point to
   // the phone itself. Reuse the page host so the same FastAPI instance on the
