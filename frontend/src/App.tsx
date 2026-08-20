@@ -8,6 +8,12 @@ import { Toaster } from 'sonner';
 import AppLayout from './components/layout/AppLayout';
 import DispatcherLayout from './components/layout/DispatcherLayout';
 import DispatcherKeyGate from './components/layout/DispatcherKeyGate';
+import ShowcaseLayout from './components/showcase/ShowcaseLayout';
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const EconomicsPage = lazy(() => import('./pages/showcase/EconomicsPage'));
+const ModulesPage = lazy(() => import('./pages/showcase/ModulesPage'));
+const TechnologyPage = lazy(() => import('./pages/showcase/TechnologyPage'));
+const FaqPage = lazy(() => import('./pages/showcase/FaqPage'));
 const DemoPage = lazy(() => import('./pages/DemoPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const ScanPage = lazy(() => import('./pages/ScanPage'));
@@ -48,12 +54,21 @@ export default function App() {
           <BrowserRouter>
             <Suspense fallback={<div className="min-h-screen bg-background text-foreground flex items-center justify-center"><div className="w-9 h-9 border-4 border-primary/20 border-t-primary rounded-full animate-spin" aria-label="Загрузка страницы" /></div>}>
             <Routes>
+              {/* Витрина проекта открыта всем: жюри и партнёр должны
+                  увидеть экономику до того, как заведут аккаунт. Разделы —
+                  отдельные адреса, а не якоря: на них можно дать ссылку. */}
+              <Route element={<ShowcaseLayout />}>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/economics" element={<EconomicsPage />} />
+                <Route path="/modules" element={<ModulesPage />} />
+                <Route path="/technology" element={<TechnologyPage />} />
+                <Route path="/faq" element={<FaqPage />} />
+              </Route>
               <Route path="/demo" element={<DemoPage />} />
               
               {/* User & Volunteer Routes */}
               <Route element={<ProtectedRoute allowedRoles={['user', 'volunteer']} />}>
                 <Route element={<AppLayout />}>
-                  <Route path="/" element={<Navigate to="/home" replace />} />
                   <Route path="/home" element={<HomePage />} />
                   <Route path="/scan" element={<ScanPage />} />
                   <Route path="/map" element={<MapPage />} />
@@ -85,7 +100,7 @@ export default function App() {
                 </Route>
               </Route>
 
-              <Route path="*" element={<Navigate to="/demo" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             </Suspense>
           </BrowserRouter>

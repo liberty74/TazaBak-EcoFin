@@ -15,7 +15,9 @@ export const ProtectedRoute = ({ allowedRoles }: { allowedRoles: string[] }) => 
   }
 
   if (!user) {
-    return <Navigate to="/demo" replace />;
+    // Неавторизованного отправляем на витрину, а не на служебный экран
+    // выбора роли: там объяснено, что это за система, и стоит вход.
+    return <Navigate to="/" replace />;
   }
 
   if (!allowedRoles.includes(user.role || '')) {
