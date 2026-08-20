@@ -696,15 +696,6 @@ class BusinessForecast(BaseModel):
     rescued_value_kzt: float
 
 
-class SchoolClassStanding(BaseModel):
-    school_class: str
-    pupils: int
-    points: int
-    accepted_items: int
-    bread_kg: float
-    bread_kzt: float
-
-
 class EcoRecommendation(BaseModel):
     title: str = Field(min_length=1, max_length=160)
     detail: str = Field(min_length=1, max_length=600)

@@ -1,4 +1,4 @@
-"""Forecast, route planning, bakery leftovers and school standings."""
+"""Forecast, route planning and bakery leftovers."""
 
 from __future__ import annotations
 
@@ -12,11 +12,10 @@ from app.models import (
     BinContainer,
     CollectionEvent,
     Telemetry,
-    User,
     WriteOffRecord,
     utcnow,
 )
-from app.services.eco_business import forecast_write_offs, school_standings
+from app.services.eco_business import forecast_write_offs
 from app.services.eco_forecast import fit_trend, forecast_container
 from app.services.eco_route import (
     Point,
@@ -410,40 +409,3 @@ def test_business_forecast_endpoint_defaults_to_tomorrow(api) -> None:
     assert payload["target_date"] == tomorrow.isoformat()
     assert payload["products"]
     assert payload["history_days"] > 0
-
-
-# --- School standings ------------------------------------------------------
-
-
-def test_school_standings_group_pupils_by_class(api) -> None:
-    _, session_factory, _ = api
-
-    with session_factory() as db:
-        profile = get_profile(db)
-        standings = school_standings(db, profile)
-
-    classes = {row.school_class: row for row in standings}
-    assert set(classes) == {"8Б", "9А"}
-    assert classes["9А"].pupils == 2
-    assert classes["8Б"].pupils == 2
-    # 280 + 150 у 9А против 120 + 190 у 8Б.
-    assert classes["9А"].points == 430
-    assert classes["8Б"].points == 310
-
-
-def test_school_leaderboard_endpoint_is_public(api) -> None:
-    client, _, _ = api
-
-    response = client.get("/api/eco/schools/leaderboard")
-    assert response.status_code == 200
-    assert {row["school_class"] for row in response.json()} == {"8Б", "9А"}
-
-
-def test_school_standings_are_empty_without_school_users(api) -> None:
-    _, session_factory, _ = api
-
-    with session_factory() as db:
-        profile = get_profile(db)
-        db.execute(delete(User).where(User.school_class.is_not(None)))
-        db.commit()
-        assert school_standings(db, profile) == []

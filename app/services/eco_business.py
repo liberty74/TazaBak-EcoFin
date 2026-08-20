@@ -1,4 +1,4 @@
-"""Small-business and school side of EcoFin.
+"""Small-business side of EcoFin.
 
 A bakery does not care about refuse routes. Its money leaks in the evening,
 when unsold bread is written off — the exact problem the Astana interview
@@ -15,13 +15,8 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import BioAnalysis, CostProfile, User, WriteOffRecord
-from app.schemas import (
-    BusinessForecast,
-    ProductForecast,
-    SchoolClassStanding,
-    WeekdayProfile,
-)
+from app.models import CostProfile, WriteOffRecord
+from app.schemas import BusinessForecast, ProductForecast, WeekdayProfile
 
 
 WEEKDAY_NAMES = (
@@ -135,51 +130,3 @@ def forecast_write_offs(
         ),
         rescued_value_kzt=round(rescued_value, 2),
     )
-
-
-def school_standings(
-    db: Session, profile: CostProfile, *, limit: int = 20
-) -> list[SchoolClassStanding]:
-    """Rank school classes by the bread their pupils actually handed over."""
-
-    rows = db.execute(
-        select(
-            User.school_class,
-            func.count(func.distinct(User.id)),
-            func.sum(User.points),
-        )
-        .where(User.school_class.is_not(None))
-        .group_by(User.school_class)
-    ).all()
-    if not rows:
-        return []
-
-    accepted = dict(
-        db.execute(
-            select(User.school_class, func.count(BioAnalysis.id))
-            .join(BioAnalysis, BioAnalysis.user_id == User.id)
-            .where(User.school_class.is_not(None), BioAnalysis.status == "approve")
-            .group_by(User.school_class)
-        ).all()
-    )
-
-    standings = [
-        SchoolClassStanding(
-            school_class=school_class,
-            pupils=int(pupils or 0),
-            points=int(points or 0),
-            accepted_items=int(accepted.get(school_class, 0)),
-            bread_kg=round(
-                accepted.get(school_class, 0) * profile.bread_avg_weight_kg, 2
-            ),
-            bread_kzt=round(
-                accepted.get(school_class, 0)
-                * profile.bread_avg_weight_kg
-                * profile.bread_cost_kzt_per_kg,
-                2,
-            ),
-        )
-        for school_class, pupils, points in rows
-    ]
-    standings.sort(key=lambda item: (-item.bread_kg, -item.points, item.school_class))
-    return standings[:limit]

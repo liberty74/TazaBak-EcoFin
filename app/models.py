@@ -67,9 +67,6 @@ class User(Base):
     status_tier: Mapped[str] = mapped_column(
         String(64), default="Eco-Starter", nullable=False
     )
-    # Set only for school participants, so classes can be ranked against each
-    # other. Residents and staff keep it empty.
-    school_class: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
 
     user_tasks: Mapped[list["UserTask"]] = relationship(
@@ -618,7 +615,7 @@ class SavingsSnapshot(Base):
 
 
 class WriteOffRecord(Base):
-    """Daily unsold-product log of a bakery, cafe or school canteen."""
+    """Daily unsold-product log of a bakery or cafe."""
 
     __tablename__ = "write_off_records"
     __table_args__ = (

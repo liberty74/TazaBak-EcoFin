@@ -38,28 +38,29 @@ logger = logging.getLogger(__name__)
 def _seed_users(db: Session) -> None:
     """Create role-aware demo accounts and their opening ledger entries."""
 
+    # Классы школьникам не проставляются: зачёт должен наполняться реальными
+    # регистрациями и принятыми сдачами хлеба. Выдуманные «8Б» и «9А» давали
+    # на экране строки с нулевыми килограммами и баллами из стартового
+    # баланса — цифры, за которыми не стоит ни одна сдача.
     demo_users = (
-        # username, role, opening balance, tier, school class
-        ("123", "user", 120, "Eco-Hero", "8Б"),
-        ("volunteer-1", "volunteer", 40, "Eco-Volunteer", None),
-        ("dispatcher-1", "dispatcher", 0, "Dispatcher", None),
-        ("Айгерім", "user", 280, "Eco-Legend", "9А"),
-        ("Диас", "user", 190, "Eco-Hero", "8Б"),
-        ("Мадина", "user", 150, "Eco-Activist", "9А"),
+        # username, role, opening balance, tier
+        ("123", "user", 120, "Eco-Hero"),
+        ("volunteer-1", "volunteer", 40, "Eco-Volunteer"),
+        ("dispatcher-1", "dispatcher", 0, "Dispatcher"),
+        ("Айгерім", "user", 280, "Eco-Legend"),
+        ("Диас", "user", 190, "Eco-Hero"),
+        ("Мадина", "user", 150, "Eco-Activist"),
     )
     existing_users = {
         user.username: user for user in db.scalars(select(User)).all()
     }
 
-    for username, role, points, tier, school_class in demo_users:
+    for username, role, points, tier in demo_users:
         existing_user = existing_users.get(username)
         if existing_user is not None:
             # Demo accounts remain usable after upgrading an existing database.
             if not existing_user.password_hash:
                 existing_user.password_hash = hash_password("123")
-            # Filling an empty column is not overwriting a user's own choice.
-            if existing_user.school_class is None and school_class is not None:
-                existing_user.school_class = school_class
             continue
 
         user = User(
@@ -68,7 +69,6 @@ def _seed_users(db: Session) -> None:
             role=role,
             points=points,
             status_tier=tier,
-            school_class=school_class,
         )
         db.add(user)
         db.flush()

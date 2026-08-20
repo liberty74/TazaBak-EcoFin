@@ -36,7 +36,6 @@ from app.schemas import (
     RoutePlan,
     SavingsReport,
     SavingsSnapshotResponse,
-    SchoolClassStanding,
     WriteOffCreate,
     WriteOffResponse,
 )
@@ -50,7 +49,7 @@ from app.services.eco_advisor import (
     drop_ungrounded,
     fallback_recommendations,
 )
-from app.services.eco_business import forecast_write_offs, school_standings
+from app.services.eco_business import forecast_write_offs
 from app.services.eco_forecast import forecast_all
 from app.services.eco_revenue import build_revenue_model
 from app.services.eco_route import build_route_plan
@@ -147,15 +146,6 @@ def forecast(
     """When each site reaches the dispatch threshold, most urgent first."""
 
     return forecast_all(db, _profile_or_404(db, profile_id))
-
-
-@public_router.get("/schools/leaderboard", response_model=list[SchoolClassStanding])
-def schools_leaderboard(
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    profile_id: Annotated[int | None, Query(gt=0)] = None,
-    db: Session = Depends(get_db),
-) -> list[SchoolClassStanding]:
-    return school_standings(db, _profile_or_404(db, profile_id), limit=limit)
 
 
 @router.get("/route", response_model=RoutePlan)
