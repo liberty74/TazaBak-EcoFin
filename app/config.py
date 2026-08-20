@@ -40,6 +40,29 @@ def _env_csv(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(item.strip() for item in value.split(",") if item.strip())
 
 
+def _normalize_origin(value: str) -> str:
+    """Bring one CORS entry to the exact form a browser sends.
+
+    Two shapes arrive here that would never match otherwise. A trailing slash
+    (``https://app.example.com/``) is a classic silent failure: the ``Origin``
+    header never carries one, so the entry matches nothing and the console
+    only says "CORS". And a bare host arrives from managed hosting, where the
+    platform substitutes a service's host name without a scheme; on such a
+    platform the site is served over TLS, so ``https`` is the only sane guess.
+    """
+
+    trimmed = value.strip().rstrip("/")
+    if not trimmed or "://" in trimmed:
+        return trimmed
+    return f"https://{trimmed}"
+
+
+def _env_origins(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(
+        origin for origin in (_normalize_origin(item) for item in _env_csv(name, default)) if origin
+    )
+
+
 def _normalize_database_url(value: str) -> str:
     """Pin PostgreSQL to the psycopg (v3) driver without forcing every
     deployment to spell it out in DATABASE_URL.
@@ -70,7 +93,7 @@ class Settings:
     dispatcher_api_key: str = os.getenv(
         "DISPATCHER_API_KEY", "123"
     )
-    cors_origins: tuple[str, ...] = _env_csv(
+    cors_origins: tuple[str, ...] = _env_origins(
         "CORS_ORIGINS",
         (
             "http://localhost:5173",
