@@ -27,7 +27,6 @@ export const queryKeys = {
       ['ecoBusinessForecast', target, weeks] as const,
     profile: ['ecoProfile'] as const,
     writeOffs: (limit: number) => ['ecoWriteOffs', limit] as const,
-    schools: (limit: number) => ['ecoSchools', limit] as const,
   },
   dispatcher: {
     summary: ['dispatcherSummary'] as const,

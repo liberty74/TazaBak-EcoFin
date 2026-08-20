@@ -1,32 +1,21 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Award, Trophy, ChevronRight, ArrowUpRight, Shield, Leaf, GraduationCap, Wheat } from 'lucide-react';
+import { Award, Trophy, ChevronRight, ArrowUpRight, Shield, Leaf } from 'lucide-react';
 import { fetchLeaderboard } from '../api/users';
-import { fetchSchoolLeaderboard } from '../api/eco';
 import { queryKeys } from '../api/queryKeys';
 import { useAuth } from '../store/AuthContext';
 import { useLocaleTheme } from '../store/LocaleThemeContext';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { cn } from '../lib/utils';
-
-type LeaderboardTab = 'activists' | 'classes';
 
 export default function LeaderboardPage() {
   const { user } = useAuth();
   const { t } = useLocaleTheme();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<LeaderboardTab>('activists');
 
   const { data: activists = [], isLoading, isError } = useQuery({
     queryKey: queryKeys.leaderboard,
     queryFn: () => fetchLeaderboard(15),
-  });
-
-  const { data: classes = [], isLoading: isClassesLoading } = useQuery({
-    queryKey: queryKeys.eco.schools(20),
-    queryFn: () => fetchSchoolLeaderboard(20),
-    enabled: tab === 'classes',
   });
 
   const top3 = activists.slice(0, 3);
@@ -60,93 +49,7 @@ export default function LeaderboardPage() {
         </button>
       </div>
 
-      {/* Переключатель: личный зачёт и школьный поверх тех же баллов */}
-      <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit" role="group" aria-label="Тип рейтинга">
-        <button
-          onClick={() => setTab('activists')}
-          aria-pressed={tab === 'activists'}
-          className={cn(
-            'flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors min-h-[40px]',
-            tab === 'activists' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground',
-          )}
-        >
-          <Trophy className="w-4 h-4" />
-          Активисты
-        </button>
-        <button
-          onClick={() => setTab('classes')}
-          aria-pressed={tab === 'classes'}
-          className={cn(
-            'flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors min-h-[40px]',
-            tab === 'classes' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground',
-          )}
-        >
-          <GraduationCap className="w-4 h-4" />
-          Классы
-        </button>
-      </div>
-
-      {tab === 'classes' ? (
-        <div className="bg-white border border-sand rounded-3xl p-4 md:p-6 shadow-sm">
-          <h3 className="font-bold text-lg mb-1 text-graphite">Школьный зачёт</h3>
-          <p className="text-sm text-graphite/60 mb-4">
-            Килограммы считаются от принятых сканирований, поэтому цифра растёт
-            прямо во время сдачи хлеба.
-          </p>
-          {isClassesLoading ? (
-            <div className="h-40 bg-cream rounded-2xl animate-pulse" />
-          ) : classes.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-graphite/60 border-b border-sand">
-                    <th className="py-2 pr-3 font-semibold">#</th>
-                    <th className="py-2 pr-3 font-semibold">Класс</th>
-                    <th className="py-2 pr-3 font-semibold text-right">Учеников</th>
-                    <th className="py-2 pr-3 font-semibold text-right">Принято</th>
-                    <th className="py-2 pr-3 font-semibold text-right">Хлеба</th>
-                    <th className="py-2 font-semibold text-right">Баллы</th>
-                  </tr>
-                </thead>
-                <tbody className="tabular-nums">
-                  {classes.map((standing, index) => (
-                    <tr
-                      key={standing.school_class}
-                      className={cn(
-                        'border-b border-sand last:border-0',
-                        index === 0 && 'bg-primary/5',
-                      )}
-                    >
-                      <td className="py-3 pr-3 font-mono font-bold text-graphite/40">
-                        {index + 1}
-                      </td>
-                      <td className="py-3 pr-3">
-                        <span className="font-bold text-graphite">{standing.school_class}</span>
-                        {index === 0 && <span className="ml-2">👑</span>}
-                      </td>
-                      <td className="py-3 pr-3 text-right text-graphite/70">{standing.pupils}</td>
-                      <td className="py-3 pr-3 text-right text-graphite/70">
-                        {standing.accepted_items}
-                      </td>
-                      <td className="py-3 pr-3 text-right font-bold text-primary">
-                        {standing.bread_kg} кг
-                      </td>
-                      <td className="py-3 text-right font-bold text-graphite">{standing.points}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2 py-10 text-center">
-              <Wheat className="w-8 h-8 text-graphite/30" />
-              <p className="text-sm text-graphite/50">
-                Классы появятся, когда ученики начнут сдавать хлеб.
-              </p>
-            </div>
-          )}
-        </div>
-      ) : isLoading ? (
+      {isLoading ? (
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-4 h-48 bg-white rounded-3xl border border-sand animate-pulse" />
           <div className="h-64 bg-white rounded-3xl border border-sand animate-pulse" />

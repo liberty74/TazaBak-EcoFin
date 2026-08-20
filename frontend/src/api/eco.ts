@@ -7,7 +7,6 @@ import type {
   RevenueModel,
   RoutePlan,
   SavingsReport,
-  SchoolClassStanding,
   WriteOffCreate,
   WriteOffRecord,
 } from './types';
@@ -22,14 +21,6 @@ export const fetchSavings = async (days = 30): Promise<SavingsReport> => {
 
 export const fetchForecast = async (): Promise<ContainerForecast[]> => {
   const response = await apiClient.get<ContainerForecast[]>('/api/eco/forecast');
-  return response.data;
-};
-
-export const fetchSchoolLeaderboard = async (limit = 20): Promise<SchoolClassStanding[]> => {
-  const response = await apiClient.get<SchoolClassStanding[]>(
-    '/api/eco/schools/leaderboard',
-    { params: { limit } },
-  );
   return response.data;
 };
 

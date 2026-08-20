@@ -23,7 +23,7 @@ function isDispatcherProtectedRequest(method: string, url: string): boolean {
   if (url.startsWith('/api/dispatcher/') || url.startsWith('/api/dispatch/') || url.startsWith('/api/alerts/')) {
     return true;
   }
-  // Часть EcoFin-эндпоинтов публичная (savings, forecast, schools), часть — нет.
+  // Часть EcoFin-эндпоинтов публичная (savings, forecast), часть — нет.
   // Ключ прикладывается ко всем: публичные его просто игнорируют, а без него
   // маршрут, пекарня и профиль расчёта вернули бы 401.
   if (url.startsWith('/api/eco/')) {

@@ -425,15 +425,6 @@ export interface BusinessForecast {
   rescued_value_kzt: number;
 }
 
-export interface SchoolClassStanding {
-  school_class: string;
-  pupils: number;
-  points: number;
-  accepted_items: number;
-  bread_kg: number;
-  bread_kzt: number;
-}
-
 export interface EcoCostProfile {
   id: number;
   org_name: string;
