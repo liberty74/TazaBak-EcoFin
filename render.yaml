@@ -1,0 +1,102 @@
+# TazaBAK EcoFin — развёртывание в Render.
+#
+# Три сервиса: база, API и витрина. Всё на бесплатных планах, чтобы жюри могло
+# открыть ссылку, а команда — не платить за хакатон.
+#
+#   Blueprints → New Blueprint Instance → этот репозиторий.
+#
+# Что важно знать до первого запуска:
+#
+# 1. Бесплатный инстанс засыпает после 15 минут без запросов. Первый запрос
+#    после сна поднимает контейнер примерно за минуту. Перед защитой откройте
+#    ссылку заранее, иначе жюри увидит пустой экран и решит, что не работает.
+# 2. Бесплатная база живёт 30 дней с момента создания. Для хакатона хватает,
+#    для эксплуатации — нет.
+# 3. В облаке не ставится torch: CLIP и YOLO вместе просят около 700 МБ
+#    оперативной памяти, а бесплатный инстанс даёт 512 МБ. Разбор фотографии
+#    отвечает 503, остальное работает целиком. Полный набор моделей — в
+#    docker compose на ноутбуке.
+# 4. Диск у бесплатного плана временный: загруженные снимки исчезают при
+#    перезапуске. Строки в базе остаются — они лежат в Postgres.
+
+databases:
+  - name: tazabak-db
+    databaseName: tazabak
+    user: tazabak
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: "16"
+    # Наружу база не смотрит: к ней ходит только API из той же сети Render.
+    ipAllowList: []
+
+services:
+  - type: web
+    name: tazabak-api
+    runtime: python
+    plan: free
+    region: frankfurt
+    branch: main
+    # Ядро без моделей — причина в комментарии к файлу и в requirements-core.txt.
+    buildCommand: pip install --upgrade pip && pip install -r requirements-core.txt
+    # Порт назначает платформа, зашивать 8000 нельзя.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # Тот же /health, что и в Docker: отвечает только когда база доступна.
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tazabak-db
+          property: connectionString
+      - key: APP_ENV
+        value: production
+      # Демонстрационные площадки и история вывозов создаются при первом
+      # старте. Сид идемпотентный: перезапуск не сбрасывает правки.
+      - key: SEED_DEMO_DATA
+        value: "true"
+      # APP_ENV=production запрещает демо-ключ «123», поэтому ключ генерирует
+      # платформа. Значение видно в Environment у сервиса — его вводят в окне
+      # входа диспетчера.
+      - key: DISPATCHER_API_KEY
+        generateValue: true
+      # Опрашивать нечего: ESP32-CAM стоит в Кокшетау, а не в дата-центре.
+      # Включённый цикл только жёг бы 0.1 CPU бесплатного плана.
+      - key: CAMERA_ANALYSIS_ENABLED
+        value: "false"
+      # Витрина живёт на соседнем сервисе, для браузера это чужой источник.
+      # Имя хоста подставляет платформа, схему дописывает app/config.py.
+      - key: CORS_ORIGINS
+        fromService:
+          type: web
+          name: tazabak-web
+          property: host
+      # Без ключа советы Баки собираются локальными правилами по тем же
+      # посчитанным числам — сервис остаётся рабочим.
+      - key: GEMINI_API_KEY
+        sync: false
+
+  - type: web
+    name: tazabak-web
+    runtime: static
+    branch: main
+    rootDir: frontend
+    # npm ci, а не npm install: собираются ровно те версии из package-lock,
+    # на которых проверялись экраны.
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    routes:
+      # React Router обслуживает маршруты на клиенте. Без этого перезагрузка
+      # страницы на /dispatcher/revenue вернула бы 404 от платформы.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # Vite подставляет адрес во время сборки, менять его в рантайме поздно.
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: tazabak-api
+          property: host
