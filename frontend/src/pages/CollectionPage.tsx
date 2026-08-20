@@ -112,7 +112,7 @@ export default function CollectionPage() {
             className="w-full bg-primary text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-primary/95 transition-all flex items-center justify-center gap-2"
           >
             <Sparkles className="w-5 h-5" />
-            <span>Создать Eco-NFT</span>
+            <span>{t('createEcoNft')}</span>
           </button>
         </div>
       )}

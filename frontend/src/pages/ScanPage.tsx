@@ -125,12 +125,7 @@ export default function ScanPage() {
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
           <div className="text-sm">
             <p className="font-medium">{t('scanOfflineTitle')}</p>
-            <p className="mt-1 opacity-90">
-              CLIP и YOLOv8 считаются на машине с моделями: вдвоём они занимают
-              около 700 МБ памяти, а бесплатный облачный инстанс даёт 512 МБ.
-              Остальные разделы — прогноз, маршрут, экономия, доходы — работают
-              на этих же данных.
-            </p>
+            <p className="mt-1 opacity-90">{t('scanOfflineBody')}</p>
           </div>
         </div>
       )}

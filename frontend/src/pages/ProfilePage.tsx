@@ -92,7 +92,7 @@ export default function ProfilePage() {
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-graphite/40 py-12">
                 <ImageIcon className="w-12 h-12 mb-2 opacity-20" />
-                <p>Коллекция пуста</p>
+                <p>{t('collectionEmpty')}</p>
               </div>
             )}
           </div>
