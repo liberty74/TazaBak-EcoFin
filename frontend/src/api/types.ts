@@ -159,6 +159,11 @@ export interface DeviceCommandResponse {
 
 export interface DeviceTelemetryStatus {
   device_id: string;
+  /**
+   * Стоит ли на площадке плата. Экран управления показывает только такие:
+   * у запланированного адреса нечего открывать и не на что смотреть.
+   */
+  has_hardware: boolean;
   lid_status: string;
   last_seen_at: string;
   temperature_in_c: number | null;

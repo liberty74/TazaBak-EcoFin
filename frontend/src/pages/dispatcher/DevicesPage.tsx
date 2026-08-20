@@ -70,7 +70,16 @@ export default function DevicesPage() {
     onError: (error: unknown) => toast.error(handleApiError(error).message),
   });
 
-  const devices = (containersQuery.data ?? []).filter((device) => `${device.device_id} ${device.name} ${device.address}`.toLowerCase().includes(search.toLowerCase()));
+  // Экран управления показывает только площадки с собранным железом. Остальные
+  // адреса в базе — запланированные точки: их уровень нужен прогнозу и
+  // маршруту, но открывать у них заслонку и смотреть камеру не у чего, и
+  // ряды таких карточек с кнопками обещали бы то, чего нет.
+  const assembled = new Set(
+    (statusesQuery.data ?? []).filter((status) => status.has_hardware).map((status) => status.device_id),
+  );
+  const devices = (containersQuery.data ?? [])
+    .filter((device) => assembled.has(device.device_id))
+    .filter((device) => `${device.device_id} ${device.name} ${device.address}`.toLowerCase().includes(search.toLowerCase()));
 
   const openDetails = (device: Container) => {
     setSelectedDevice(device);
@@ -82,16 +91,31 @@ export default function DevicesPage() {
     <div className="mx-auto max-w-7xl space-y-6 pb-24 text-foreground lg:pb-8">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold"><RadioReceiver className="h-6 w-6 text-primary" />IoT управление</h1>
-        <p className="mt-1 text-sm text-foreground/55">Телеметрия ESP32, температура DS18B20, заслонка SG90 и камера ESP32-CAM.</p>
+        <p className="mt-1 text-sm text-foreground/55">Телеметрия ESP32, температура DS18B20, заслонка SG90 и камера ESP32-CAM. Здесь только собранные баки: площадка попадает сюда, когда её плата впервые присылает замер.</p>
       </div>
 
-      <div className="relative max-w-xl">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
-        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по ID, названию или адресу" className="w-full rounded-xl border border-border bg-card py-2.5 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/30" />
-      </div>
+      {/* Поиск появляется, когда искать есть среди чего. */}
+      {assembled.size > 3 && (
+        <div className="relative max-w-xl">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по ID, названию или адресу" className="w-full rounded-xl border border-border bg-card py-2.5 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/30" />
+        </div>
+      )}
+
+      {!containersQuery.isLoading && !statusesQuery.isLoading && devices.length === 0 && (
+        <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center">
+          <RadioReceiver className="mx-auto h-8 w-8 text-foreground/30" />
+          <p className="mt-3 font-bold">Собранных баков пока нет</p>
+          <p className="mx-auto mt-2 max-w-md text-sm text-foreground/55">
+            Площадка появляется здесь, когда её плата впервые присылает замер на
+            <span className="font-mono"> /api/sensors/ingest</span>. Запланированные
+            адреса живут на карте и в прогнозе — там для них есть данные.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {containersQuery.isLoading ? Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-64 animate-pulse rounded-3xl border border-border bg-card" />) : devices.map((device) => {
+        {containersQuery.isLoading ? Array.from({ length: 3 }).map((_, index) => <div key={index} className="h-64 animate-pulse rounded-3xl border border-border bg-card" />) : devices.map((device) => {
           const status = statusByDevice.get(device.device_id);
           const isClosed = lidIsClosed(status?.lid_status ?? 'OPEN');
           const temperature = status?.temperature_in_c;
