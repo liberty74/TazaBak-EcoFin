@@ -191,7 +191,9 @@ export default function ShowcaseAuth({ isOpen, initialMode, onClose }: ShowcaseA
                   required
                   type="password"
                   autoComplete="off"
-                  placeholder="в демо это 123"
+                  // Подсказка не называет значение: на локальном стенде ключ «123»,
+                  // а в облаке его генерирует платформа, и зашитая подсказка врала бы.
+                  placeholder="ключ панели диспетчера"
                   className={fieldClass}
                 />
               </label>
