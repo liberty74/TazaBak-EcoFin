@@ -100,14 +100,19 @@ export default function LandingPage() {
           Первый экран. Атмосферу держит видео неба, поверх него —
           сеть площадок города и затемняющая вуаль под текстом.
           --------------------------------------------------------------- */}
-      <div className="relative overflow-hidden bg-ink">
+      {/* -mt-16 задвигает первый экран под липкую шапку высотой h-16. Без
+          этого видео начинается ниже неё, шапка показывает фон страницы, и
+          белые надписи на нём становятся нечитаемыми. */}
+      <div className="relative -mt-16 overflow-hidden bg-ink">
         <VideoBackdrop src="/media/clouds.mp4" scrim="from-ink/70 via-ink/45 to-ink/85" />
 
         {/* Живая сеть поверх кадра: точки — площадки, они наполняются и
             вспыхивают при вывозе. На видео она читается только светлой. */}
         <ShowcaseBackdrop accent={[255, 255, 255]} className="opacity-50" />
 
-        <div className="relative mx-auto flex min-h-[92vh] max-w-4xl flex-col items-center justify-center px-5 py-24 text-center">
+        {/* Верхние 4rem экрана заняты шапкой, поэтому отступ сверху на неё
+            больше — иначе содержимое кажется съехавшим вверх. */}
+        <div className="relative mx-auto flex min-h-[92vh] max-w-4xl flex-col items-center justify-center px-5 pb-24 pt-40 text-center">
           <p className="mono-label rounded-full border border-white/25 bg-white/10 px-5 py-2 text-white/90 backdrop-blur-sm">
             EcoFin · Кокшетау · Пилот на десяти баках
           </p>
