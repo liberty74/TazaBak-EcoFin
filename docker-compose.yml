@@ -9,6 +9,25 @@
 # всё берётся из слоёв Docker, и стенд поднимается за секунды.
 
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: tazabak
+      POSTGRES_USER: tazabak
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tazabak}
+    volumes:
+      - tazabak-postgres:/var/lib/postgresql/data
+    ports:
+      # Наружу — только для отладки с хоста (psql, DBeaver). Backend ходит
+      # внутри сети Docker по имени сервиса, порт хоста не задействует.
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tazabak -d tazabak"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   backend:
     build:
       context: .
@@ -17,9 +36,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # База лежит в томе, а не в слое образа: пересборка не должна стирать
-      # историю вывозов, на которой строится вся экономика.
-      DATABASE_URL: sqlite:////data/tazabak.db
+      # postgresql:// нормализуется на драйвер psycopg (v3) в app/config.py,
+      # писать +psycopg в адресе здесь не обязательно.
+      DATABASE_URL: postgresql://tazabak:${POSTGRES_PASSWORD:-tazabak}@db:5432/tazabak
       APP_ENV: ${APP_ENV:-development}
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
       DISPATCHER_API_KEY: ${DISPATCHER_API_KEY:-123}
@@ -30,8 +49,12 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       YOLO_DEVICE: cpu
     volumes:
-      - tazabak-data:/data
+      # База переехала в сервис db; здесь остаются только загруженные
+      # изображения — они не строки таблиц и в дампе базы не нужны.
       - tazabak-static:/app/static
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -51,5 +74,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  tazabak-data:
+  tazabak-postgres:
   tazabak-static:
