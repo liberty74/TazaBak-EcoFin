@@ -158,7 +158,7 @@ export default function ShowcaseAuth({ isOpen, initialMode, onClose }: ShowcaseA
         normalized.status === 401 || normalized.status === 403
           ? isLocalStand()
             ? 'Ключ не подошёл. На локальном стенде это 123.'
-            : 'Ключ не подошёл. Его выдаёт администратор стенда.'
+            : 'Ключ не подошёл. Он задаётся при развёртывании переменной DISPATCHER_API_KEY.'
           : normalized.message,
       );
     } finally {

@@ -325,7 +325,10 @@ export default function ScanPage() {
                     ),
                   )}
                   <p className="mt-2 text-[11px] text-muted-foreground">
-                    CLIP zero-shot · {result.classification.model}
+                    {result.classification.engine === 'gemini-vision'
+                      ? 'Gemini vision'
+                      : 'CLIP zero-shot'}{' '}
+                    · {result.classification.model}
                   </p>
                 </div>
               )}

@@ -99,6 +99,12 @@ export interface BreadClassification {
   confidence: number;
   probabilities: Record<BreadDecision, number>;
   model: string;
+  /**
+   * Чем посчитано. CLIP даёт softmax по косинусным близостям — собственное
+   * распределение модели; удалённый движок сообщает свою уверенность сам.
+   * Экран подписывает то, что показывает, и не выдаёт одно за другое.
+   */
+  engine?: 'clip-zero-shot' | 'gemini-vision';
 }
 
 export interface BioResponse {
@@ -186,7 +192,7 @@ export interface HealthResponse {
    * CLIP и YOLOv8 вместе просят около 700 МБ памяти. Интерфейс обязан сказать
    * об этом заранее, а не предлагать кнопку, которая ответит ошибкой.
    */
-  image_analysis?: 'local' | 'unavailable';
+  image_analysis?: 'local' | 'remote' | 'unavailable';
 }
 
 export interface AIChatRequest {
