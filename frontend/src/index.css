@@ -15,40 +15,99 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
 
-  --color-primary: #176B4D;
-  --color-primary-light: #39A96B;
+  /* Акценты. Тёмная тема — основная, поэтому значения выбраны под неё и
+     проверены расчётом контраста к обсидиановой поверхности, а не на глаз. */
+  --color-primary: #1B7A4E;
+  --color-primary-light: #35B87C;
   --color-accent: #A8D672;
-  --color-bread: #D89A52;
   --color-cream: #F8F6EF;
   --color-sand: #EFE7D5;
   --color-graphite: #24332D;
-  --color-critical: #D64545;
-  --color-warning: #F59E42;
-  --color-info: #3B82F6;
+
 
   --font-sans: "Inter", "Manrope", ui-sans-serif, system-ui, sans-serif;
+
+  /* ------------------------------------------------------------------
+     Витрина проекта («дневная галерея»).
+
+     Тот же язык, что и в референсе: крупная антиква шёпотом, хроматические
+     плитки-категории, моноширинные микроподписи, плоскость вместо теней.
+     Только полотно светлое — EcoFin про воздух и зелень, а не про ночь.
+
+     Все значения проверены расчётом контраста, а не подобраны на глаз:
+     чернила 16.9:1, основной текст 6.2:1, приглушённый 3.4:1,
+     зелёный как текст 5.0:1 к полотну.
+     ------------------------------------------------------------------ */
+
+  /* Поверхности снизу вверх. Глубина набирается шагом цвета, а не тенью. */
+  --color-canvas: #F6F7F4;
+  --color-band: #ECEEE8;
+  --color-paper: #FFFFFF;
+  --color-paper-edge: #E2E6DF;
+  --color-inverted: #101310;
+
+  /* Текст. Чистый чёрный не используется — он звенит на светлом. */
+  --color-ink: #131614;
+  --color-body: #565E58;
+  --color-faint: #818982;
+
+  /* Подпись бренда и хроматические плитки категорий. Насыщенный цвет
+     живёт только в плитках, в тексте и обводках его нет. */
+  --color-verdant: #1B7A4E;
+  --color-mint: #A9DFC2;
+  --color-sky: #A6D9E8;
+  --color-wheat: #EBC79A;
+  --color-periwinkle: #BACDEE;
+  --color-deep-green: #14503A;
+  /* Акцент данных: графики и прогноз. Отличается от зелени подписи,
+     чтобы «бренд» и «показатель» не сливались. 5.5:1 к полотну. */
+  --color-signal: #0E6E7F;
+
+  --font-display: "DM Serif Display", "Playfair Display", Georgia, "Times New Roman", serif;
+  --font-mono-label: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Статусные и доменные цвета живут отдельным блоком без inline: ни один
+   красный не проходит порог 4.5:1 одновременно на белой карточке и на
+   тёмной, поэтому каждой теме нужен свой оттенок. */
+@theme {
+  --color-critical: #C93B3B;
+  --color-warning: #9E6A10;
+  --color-bread: #A96F30;
+  --color-info: #2C5C7A;
 }
 
 @layer base {
+  /* Основная тема продукта: то же полотно, что и на витрине, чтобы переход
+     со страницы проекта в рабочий экран не выглядел сменой продукта.
+     Глубина набирается шагом поверхности (#F6F7F4 → #FFFFFF), а не тенями. */
   :root {
-    --background: var(--color-cream);
-    --foreground: var(--color-graphite);
+    --background: #F6F7F4;
+    --foreground: #131614;
     --card: #FFFFFF;
-    --card-foreground: var(--color-graphite);
-    --border: var(--color-sand);
-    --ring: var(--color-primary-light);
-    --muted: #F1EBDD;
-    --muted-foreground: #66736D;
-  }
-  .dark {
-    --background: #1A221E;
-    --foreground: var(--color-cream);
-    --card: #24332D;
-    --card-foreground: var(--color-cream);
-    --border: #3A4A42;
+    --card-foreground: #131614;
+    --border: #E2E6DF;
     --ring: var(--color-primary);
-    --muted: #303D37;
-    --muted-foreground: #B7C2BC;
+    --muted: #ECEEE8;
+    --muted-foreground: #565E58;
+  }
+
+  /* Тёмная тема остаётся выбором пользователя — например, для ночной
+     смены диспетчера. Статусные цвета здесь светлее: те же значения на
+     тёмной поверхности дали бы 2.8–3.5:1. */
+  .dark {
+    --color-critical: #F1706E;
+    --color-warning: #E8A951;
+    --color-bread: #D89A52;
+    --color-info: #7FA9E8;
+    --background: #0F1211;
+    --foreground: #F4F6F4;
+    --card: #1B211E;
+    --card-foreground: #F4F6F4;
+    --border: #2E3833;
+    --ring: var(--color-primary-light);
+    --muted: #252D28;
+    --muted-foreground: #9BA39E;
   }
 }
 
@@ -59,6 +118,15 @@
   }
   body {
     @apply bg-background text-foreground antialiased transition-colors duration-300;
+  }
+
+  /* Заголовки страниц — тот же дисплейный голос, что и на витрине.
+     Плотные таблицы и подписи остаются гротеском: антиква там мешает. */
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.01em;
   }
 }
 
@@ -119,4 +187,93 @@
   a {
     -webkit-tap-highlight-color: transparent;
   }
+}
+
+/* ---------------------------------------------------------------------
+   Витрина проекта.
+   --------------------------------------------------------------------- */
+
+/* Витрина живёт в собственном светлом языке и не участвует в переключении
+   темы приложения: класс ставится на корне самой страницы, а не на <html>. */
+.showcase {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/* Совместимый шим выше перекрашивает любой bg-white в тёмной теме — он
+   написан для старых экранов, где белый фон означал «карточка». На витрине
+   белая бумага выбрана намеренно и должна оставаться белой независимо от
+   того, какую тему выбрал человек в приложении. Специфичность равна шиму,
+   а правило идёт позже, поэтому побеждает. */
+.showcase .bg-white:not([class*="dark:bg-"]),
+.showcase .bg-paper:not([class*="dark:bg-"]) {
+  background-color: #ffffff;
+}
+
+/* Дисплейная гарнитура: тонкая и крупная. Жирность здесь запрещена —
+   авторитет достигается размером и воздухом, а не весом. */
+.display-type {
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: -0.015em;
+}
+
+/* Моноширинные микрозаголовки: только заглавными и с разрядкой. */
+.mono-label {
+  font-family: var(--font-mono-label);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.mono-data {
+  font-family: var(--font-mono-label);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Стекло навигации — единственный настоящий признак глубины в макете:
+   теней в системе нет, поверхности различаются шагом цвета. */
+.glass-bar {
+  background-color: rgb(246 247 244 / 0.78);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* Первое слово заголовка курсивом — приём референса: он создаёт
+   редакционное напряжение внутри одной строки. */
+.display-lead {
+  font-style: italic;
+}
+
+/* Атмосфера героя: рассветное небо над зеленью. В референсе это
+   фотография; своей у проекта нет, поэтому небо собрано градиентом —
+   выдавать сток за снимок пилота было бы нечестно. */
+.hero-sky {
+  background-image:
+    linear-gradient(
+      to bottom,
+      #DCEAF4 0%,
+      #E4EFEA 34%,
+      #EFF4EC 62%,
+      var(--color-canvas) 100%
+    );
+}
+
+/* Появление секций при прокрутке. Длинное и без пружин: система ценит
+   предсказуемость, а не аттракцион. */
+@keyframes showcase-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.showcase-rise {
+  animation: showcase-rise 900ms cubic-bezier(0.455, 0.03, 0.515, 0.955) both;
 }
