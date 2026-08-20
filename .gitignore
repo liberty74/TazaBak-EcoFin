@@ -15,3 +15,12 @@ static/vision/*
 static/bio/*
 !static/vision/.gitkeep
 !static/bio/.gitkeep
+
+# Локальный встроенный PostgreSQL для разработки без Docker: каталог данных
+# сервера и адрес подключения. В репозитории им не место.
+.pgdata/
+.pgdata_uri.txt
+
+# Исходники роликов для витрины. В сборку идут копии из
+# frontend/public/media — держать в истории оба комплекта незачем.
+videos/
