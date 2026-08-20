@@ -275,7 +275,13 @@ def build_revenue_model(
     period_end: datetime,
     projection_containers: int | None = None,
 ) -> RevenueModel:
-    """Pilot revenue as measured, plus an optional projection to city scale.
+    """Revenue the pilot tariff would produce, plus an optional city-scale projection.
+
+    Nothing here is money received. The pilot figure is the tariff applied to
+    the containers actually installed and the savings actually measured — an
+    honest unit economics calculation, not booked revenue, because the pilot
+    has no paying customers yet. Calling it a fact on screen would be a lie
+    the jury is entitled to catch.
 
     The projection scales only what genuinely scales with the number of
     containers: subscriptions, hardware and CO2. Businesses and residents are
@@ -284,7 +290,9 @@ def build_revenue_model(
     """
 
     basis = collect_basis(db, profile, report, period_start, period_end)
-    pilot = _scenario("Пилот, факт", _streams(profile, basis), basis.containers)
+    pilot = _scenario(
+        "Пилот, расчёт по тарифу", _streams(profile, basis), basis.containers
+    )
 
     projection: RevenueScenario | None = None
     if projection_containers and basis.containers > 0:
