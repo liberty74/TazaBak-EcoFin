@@ -113,10 +113,13 @@ def post_bio(
 
 def test_health_openapi_and_websocket_routes(api) -> None:
     client, _, _ = api
-    assert client.get("/health").json() == {
-        "status": "ok",
-        "database": "reachable",
-    }
+    health = client.get("/health").json()
+    assert health["status"] == "ok"
+    assert health["database"] == "reachable"
+    # Значение зависит от того, стоят ли модели в этом окружении, поэтому
+    # закрепляется правило, а не ответ: поле обязано быть и обязано быть
+    # одним из двух — интерфейс разбирает его как признак, а не как текст.
+    assert health["image_analysis"] in {"local", "unavailable"}
 
     paths = set(client.get("/openapi.json").json()["paths"])
     required_paths = {

@@ -7,6 +7,8 @@ import logging
 import time
 from contextlib import asynccontextmanager
 from contextlib import suppress
+from functools import lru_cache
+from importlib.util import find_spec
 from typing import AsyncIterator
 
 from fastapi import Depends, FastAPI, Request
@@ -44,6 +46,26 @@ from app.services.camera_vision import camera_analysis_loop
 
 configure_logging()
 logger = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=1)
+def _image_analysis_mode() -> str:
+    """Report whether photographs can be judged on this machine.
+
+    CLIP and YOLOv8 run locally, and together they need roughly 700 MB of
+    memory — more than a free cloud instance has. There the models are simply
+    not installed, and the interface has to say so instead of offering a
+    button that answers 503. The check uses ``find_spec`` rather than an
+    import: asking the question must not itself load a gigabyte.
+
+    The answer cannot change while the process lives, so it is computed once.
+    """
+
+    installed = all(
+        find_spec(name) is not None
+        for name in ("torch", "transformers", "ultralytics")
+    )
+    return "local" if installed else "unavailable"
 
 
 @asynccontextmanager
@@ -193,7 +215,11 @@ def create_app() -> FastAPI:
         except SQLAlchemyError as exc:
             logger.exception("Database health check failed")
             raise RuntimeError("Database is unavailable") from exc
-        return {"status": "ok", "database": "reachable"}
+        return {
+            "status": "ok",
+            "database": "reachable",
+            "image_analysis": _image_analysis_mode(),
+        }
 
     application.add_middleware(
         CORSMiddleware,
