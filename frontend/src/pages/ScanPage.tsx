@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import { analyzeBio, BioResponse, BreadDecision } from '../api';
 import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys, handleApiError } from '../api';
+import { queryKeys, handleApiError, useApiHealth } from '../api';
 import { QRCodeSVG } from 'qrcode.react';
 import { createRequestId } from '../lib/utils';
 
@@ -34,6 +34,10 @@ export default function ScanPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  // Витрина в облаке разворачивается без torch, и разбор фотографии там
+  // недоступен. Сервис говорит об этом в /health, который и так опрашивается.
+  const { data: health } = useApiHealth();
+  const analysisOffline = health?.image_analysis === 'unavailable';
 
   // Automatically revoke the object URL whenever the previewUrl changes or when the component unmounts
   useEffect(() => {
@@ -114,6 +118,21 @@ export default function ScanPage() {
         </div>
       )}
 
+      {analysisOffline && (
+        <div className="mb-4 flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-warning">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+          <div className="text-sm">
+            <p className="font-medium">Разбор фотографии идёт на стенде, а не здесь.</p>
+            <p className="mt-1 opacity-90">
+              CLIP и YOLOv8 считаются на машине с моделями: вдвоём они занимают
+              около 700 МБ памяти, а бесплатный облачный инстанс даёт 512 МБ.
+              Остальные разделы — прогноз, маршрут, экономия, доходы — работают
+              на этих же данных.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Main Content Area */}
       <div className="flex min-h-[360px] flex-1 flex-col items-center justify-center">
         <AnimatePresence mode="wait">
@@ -169,13 +188,18 @@ export default function ScanPage() {
               <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/80 to-transparent">
                 <button
                   onClick={processImage}
-                  disabled={isScanning}
+                  disabled={isScanning || analysisOffline}
                   className="w-full bg-primary text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
                   {isScanning ? (
                     <>
                       <Loader2 className="w-6 h-6 animate-spin" />
                       Анализируем через AI...
+                    </>
+                  ) : analysisOffline ? (
+                    <>
+                      <AlertTriangle className="w-6 h-6" />
+                      Модель доступна на стенде
                     </>
                   ) : (
                     <>

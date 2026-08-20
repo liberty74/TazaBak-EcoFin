@@ -181,6 +181,12 @@ export interface CameraAnalysis {
 export interface HealthResponse {
   status: string;
   database: string;
+  /**
+   * Считаются ли модели на самой машине сервиса. В облачной витрине их нет:
+   * CLIP и YOLOv8 вместе просят около 700 МБ памяти. Интерфейс обязан сказать
+   * об этом заранее, а не предлагать кнопку, которая ответит ошибкой.
+   */
+  image_analysis?: 'local' | 'unavailable';
 }
 
 export interface AIChatRequest {
