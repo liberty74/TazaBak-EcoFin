@@ -83,7 +83,7 @@ export default function DispatcherLayout() {
             )}
           >
             <Coins className="w-5 h-5" />
-            <span>Экономия</span>
+            <span>{t('ecoSavingsNav')}</span>
           </NavLink>
 
           <NavLink
@@ -96,7 +96,7 @@ export default function DispatcherLayout() {
             )}
           >
             <Clock className="w-5 h-5" />
-            <span>Прогноз</span>
+            <span>{t('ecoForecastNav')}</span>
           </NavLink>
 
           <NavLink
@@ -109,7 +109,7 @@ export default function DispatcherLayout() {
             )}
           >
             <TrendingUp className="w-5 h-5" />
-            <span>Доходы</span>
+            <span>{t('ecoRevenueNav')}</span>
           </NavLink>
 
           <NavLink
@@ -122,7 +122,7 @@ export default function DispatcherLayout() {
             )}
           >
             <Wheat className="w-5 h-5" />
-            <span>Пекарня</span>
+            <span>{t('ecoBakeryNav')}</span>
           </NavLink>
 
           <NavLink
@@ -184,7 +184,7 @@ export default function DispatcherLayout() {
             )}
           >
             <Users className="w-5 h-5" />
-            <span>Волонтёры</span>
+            <span>{t('ecoVolunteersNav')}</span>
           </NavLink>
         </nav>
 
@@ -279,29 +279,29 @@ export default function DispatcherLayout() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <NavLink to="/dispatcher/forecast" className={({ isActive }) => cn("rounded-2xl border p-4", isActive ? "border-primary bg-primary/10 text-primary" : "border-border bg-background")}>
-                  <Clock className="mb-2 h-5 w-5" /><p className="font-bold">Прогноз</p><p className="mt-1 text-xs text-muted-foreground">Когда ехать</p>
+                  <Clock className="mb-2 h-5 w-5" /><p className="font-bold">{t('ecoForecastNav')}</p><p className="mt-1 text-xs text-muted-foreground">{t('ecoForecastHint')}</p>
                 </NavLink>
                 <NavLink to="/dispatcher/revenue" className={({ isActive }) => cn("rounded-2xl border p-4", isActive ? "border-primary bg-primary/10 text-primary" : "border-border bg-background")}>
-                  <TrendingUp className="mb-2 h-5 w-5" /><p className="font-bold">Доходы</p><p className="mt-1 text-xs text-muted-foreground">На чём зарабатываем</p>
+                  <TrendingUp className="mb-2 h-5 w-5" /><p className="font-bold">{t('ecoRevenueNav')}</p><p className="mt-1 text-xs text-muted-foreground">{t('ecoRevenueHint')}</p>
                 </NavLink>
                 <NavLink to="/dispatcher/bakery" className={({ isActive }) => cn("rounded-2xl border p-4", isActive ? "border-primary bg-primary/10 text-primary" : "border-border bg-background")}>
-                  <Wheat className="mb-2 h-5 w-5" /><p className="font-bold">Пекарня</p><p className="mt-1 text-xs text-muted-foreground">Списания и прогноз</p>
+                  <Wheat className="mb-2 h-5 w-5" /><p className="font-bold">{t('ecoBakeryNav')}</p><p className="mt-1 text-xs text-muted-foreground">{t('ecoBakeryHint')}</p>
                 </NavLink>
                 <NavLink to="/dispatcher/overview" className={({ isActive }) => cn("rounded-2xl border p-4", isActive ? "border-primary bg-primary/10 text-primary" : "border-border bg-background")}>
-                  <LayoutDashboard className="mb-2 h-5 w-5" /><p className="font-bold">Обзор</p><p className="mt-1 text-xs text-muted-foreground">Инциденты и лента</p>
+                  <LayoutDashboard className="mb-2 h-5 w-5" /><p className="font-bold">{t('ecoOverviewNav')}</p><p className="mt-1 text-xs text-muted-foreground">{t('ecoOverviewHint')}</p>
                 </NavLink>
                 <NavLink to="/dispatcher/volunteer" className={({ isActive }) => cn("rounded-2xl border p-4", isActive ? "border-primary bg-primary/10 text-primary" : "border-border bg-background")}>
-                  <Users className="mb-2 h-5 w-5" /><p className="font-bold">Задачи</p><p className="mt-1 text-xs text-muted-foreground">Работа волонтёров</p>
+                  <Users className="mb-2 h-5 w-5" /><p className="font-bold">{t('ecoTasksNav')}</p><p className="mt-1 text-xs text-muted-foreground">{t('ecoTasksHint')}</p>
                 </NavLink>
                 <NavLink to="/dispatcher/settings" className={({ isActive }) => cn("rounded-2xl border p-4", isActive ? "border-primary bg-primary/10 text-primary" : "border-border bg-background")}>
-                  <Settings className="mb-2 h-5 w-5" /><p className="font-bold">Настройки</p><p className="mt-1 text-xs text-muted-foreground">Язык и интерфейс</p>
+                  <Settings className="mb-2 h-5 w-5" /><p className="font-bold">{t('navSettings')}</p><p className="mt-1 text-xs text-muted-foreground">{t('ecoSettingsHint')}</p>
                 </NavLink>
               </div>
               <div className="mt-3 rounded-2xl border border-border bg-background p-3">
-                <p className="text-xs text-muted-foreground">Текущая сессия</p>
+                <p className="text-xs text-muted-foreground">{t('currentSession')}</p>
                 <p className="font-bold">{user?.username || 'dispatcher'} · Dispatcher</p>
               </div>
-              <button onClick={handleLogout} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-critical/20 bg-critical/10 px-4 py-3 font-bold text-critical"><LogOut className="h-5 w-5" />Выйти</button>
+              <button onClick={handleLogout} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-critical/20 bg-critical/10 px-4 py-3 font-bold text-critical"><LogOut className="h-5 w-5" />{t('logout')}</button>
             </section>
           </div>
         )}
@@ -317,7 +317,7 @@ export default function DispatcherLayout() {
             )}
           >
             <Coins className="w-5 h-5 mb-1" />
-            <span className="text-[9px] font-semibold">Экономия</span>
+            <span className="text-[9px] font-semibold">{t('ecoSavingsNav')}</span>
           </NavLink>
           <NavLink
             to="/dispatcher/map"

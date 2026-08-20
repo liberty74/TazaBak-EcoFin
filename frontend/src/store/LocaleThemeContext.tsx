@@ -134,6 +134,23 @@ export const translations = {
     saveBtn: 'Сохранить изменения',
     resetBtn: 'Сбросить',
 
+    // EcoFin. Эти экраны добавлялись после первой версии словаря, и до сих
+    // пор их подписи были зашиты по-русски прямо в разметке — при переходе
+    // на казахский половина меню оставалась русской.
+    ecoSavingsNav: 'Экономия',
+    ecoForecastNav: 'Прогноз',
+    ecoRevenueNav: 'Доходы',
+    ecoBakeryNav: 'Пекарня',
+    ecoVolunteersNav: 'Волонтёры',
+    ecoOverviewNav: 'Обзор',
+    ecoTasksNav: 'Задачи',
+    ecoForecastHint: 'Когда ехать',
+    ecoRevenueHint: 'На чём зарабатываем',
+    ecoBakeryHint: 'Списания и прогноз',
+    ecoOverviewHint: 'Инциденты и лента',
+    ecoTasksHint: 'Работа волонтёров',
+    ecoSettingsHint: 'Язык и интерфейс',
+    currentSession: 'Текущая сессия',
     // Dispatcher
     dispatcherTitle: 'Город под контролем',
     dispatchSummary: 'Сводка диспетчера',
@@ -297,6 +314,21 @@ export const translations = {
     saveBtn: 'Өзгерістерді сақтау',
     resetBtn: 'Қалпына келтіру',
 
+    // EcoFin
+    ecoSavingsNav: 'Үнемдеу',
+    ecoForecastNav: 'Болжам',
+    ecoRevenueNav: 'Кірістер',
+    ecoBakeryNav: 'Наубайхана',
+    ecoVolunteersNav: 'Еріктілер',
+    ecoOverviewNav: 'Шолу',
+    ecoTasksNav: 'Тапсырмалар',
+    ecoForecastHint: 'Қашан бару керек',
+    ecoRevenueHint: 'Неден табыс табамыз',
+    ecoBakeryHint: 'Есептен шығару және болжам',
+    ecoOverviewHint: 'Оқиғалар мен лента',
+    ecoTasksHint: 'Еріктілер жұмысы',
+    ecoSettingsHint: 'Тіл және интерфейс',
+    currentSession: 'Ағымдағы сессия',
     // Dispatcher
     dispatcherTitle: 'Қала бақылауда',
     dispatchSummary: 'Диспетчер жиынтығы',
