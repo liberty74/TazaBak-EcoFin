@@ -125,7 +125,9 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* AI Briefing */}
-        <div className="lg:col-span-2 bg-gradient-to-br from-primary to-primary-light border border-primary-light p-6 rounded-3xl shadow-sm text-white">
+        {/* Колонка: соседняя карточка ленты жёстко 400px, и без растягивания
+            содержимого разница заливалась пустым зелёным полем. */}
+        <div className="lg:col-span-2 flex flex-col bg-gradient-to-br from-primary to-primary-light border border-primary-light p-6 rounded-3xl shadow-sm text-white">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
               <Bot className="w-5 h-5 text-white" />
@@ -135,7 +137,7 @@ export default function DashboardPage() {
               <p className="text-xs text-white/70 mt-1">Gemini анализирует обстановку</p>
             </div>
           </div>
-          <div className="bg-black/20 rounded-2xl p-5 backdrop-blur-sm min-h-[180px] max-h-72 overflow-y-auto overscroll-contain">
+          <div className="min-h-[180px] flex-1 overflow-y-auto overscroll-contain rounded-2xl bg-black/20 p-5 backdrop-blur-sm">
              {isBriefingLoading ? (
                 <div className="animate-pulse space-y-3">
                   <div className="h-4 bg-white/20 rounded w-full"></div>
