@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, X } from 'lucide-react';
 import { handleApiError, login, register } from '../../api';
-import { apiClient } from '../../api/client';
+import { apiClient, getApiBaseUrl } from '../../api/client';
 import { useAuth } from '../../store/AuthContext';
 import type { UserProfile } from '../../api/types';
 
@@ -20,6 +20,26 @@ const DEMO_ACCOUNTS = [
 ] as const;
 
 const DEMO_PASSWORD = '123';
+
+/**
+ * Ключ «123» действует только на локальном стенде: в облаке APP_ENV=production
+ * запрещает демо-ключ, и платформа генерирует свой. Подсказывать значение можно
+ * лишь там, где оно верно, иначе окно входа врёт жюри.
+ */
+function isLocalStand(): boolean {
+  try {
+    const { hostname } = new URL(getApiBaseUrl());
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      /^10\./.test(hostname) ||
+      /^192\.168\./.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+    );
+  } catch {
+    return false;
+  }
+}
 
 interface ShowcaseAuthProps {
   isOpen: boolean;
@@ -136,7 +156,9 @@ export default function ShowcaseAuth({ isOpen, initialMode, onClose }: ShowcaseA
       const normalized = handleApiError(exception);
       setError(
         normalized.status === 401 || normalized.status === 403
-          ? 'Ключ не подошёл. В демо-конфигурации это 123.'
+          ? isLocalStand()
+            ? 'Ключ не подошёл. На локальном стенде это 123.'
+            : 'Ключ не подошёл. Его выдаёт администратор стенда.'
           : normalized.message,
       );
     } finally {
