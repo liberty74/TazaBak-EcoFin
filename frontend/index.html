@@ -3,12 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#176B4D" />
+    <meta name="theme-color" content="#0F1211" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/logo.svg" />
-    <title>Миска добра — TazaBAK</title>
-    <meta name="description" content="Умная система сбора хлеба для животных" />
+    <!-- Витрина набрана дисплейной антиквой и моноширинной для данных.
+         Если сети нет, стек падает на Georgia и системный моноширинный —
+         страница остаётся читаемой, а не рассыпается. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500&family=Roboto+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <title>TazaBAK EcoFin — считает рейсы, показывает деньги</title>
+    <meta
+      name="description"
+      content="Датчики в баках, вывоз по фактической заполненности и экономический слой, который переводит несделанный заезд в литры, тенге и килограммы CO2."
+    />
   </head>
   <body>
     <div id="root"></div>
