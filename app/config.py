@@ -40,12 +40,26 @@ def _env_csv(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(item.strip() for item in value.split(",") if item.strip())
 
 
+def _normalize_database_url(value: str) -> str:
+    """Pin PostgreSQL to the psycopg (v3) driver without forcing every
+    deployment to spell it out in DATABASE_URL.
+
+    SQLAlchemy defaults a bare ``postgresql://`` scheme to psycopg2, which is
+    not installed here — psycopg (v3) is. Rewriting only the unqualified
+    scheme keeps an already-explicit ``postgresql+psycopg://`` untouched.
+    """
+
+    if value.startswith("postgresql://") or value.startswith("postgres://"):
+        return "postgresql+psycopg://" + value.split("://", 1)[1]
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     app_name: str = "Миска добра — TazaBAK API"
     app_version: str = "2.0.0"
-    database_url: str = os.getenv(
-        "DATABASE_URL", f"sqlite:///{(BASE_DIR / 'tazabak.db').as_posix()}"
+    database_url: str = _normalize_database_url(
+        os.getenv("DATABASE_URL", f"sqlite:///{(BASE_DIR / 'tazabak.db').as_posix()}")
     )
     static_dir: Path = BASE_DIR / "static"
     log_level: str = os.getenv("LOG_LEVEL", "INFO").upper()
