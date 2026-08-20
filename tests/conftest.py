@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import os
+import uuid
 from dataclasses import replace
 from pathlib import Path
 from typing import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 import app.main as app_main
@@ -19,34 +22,56 @@ from app.database import Base, get_db
 from app.services.seed import seed_initial_data
 
 
+# Постгрес для тестов подключается тем же URL, что и приложение — просто
+# укажите TEST_DATABASE_URL на сервер (без имени базы в конце — оно
+# создаётся и удаляется отдельно на каждый тест). Без переменной набор
+# продолжает работать на файловом SQLite, как раньше.
+_TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
+
+
 @pytest.fixture()
 def api(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> Iterator[tuple[TestClient, sessionmaker[Session], Path]]:
-    """Run the whole API against one isolated, durable SQLite database.
+    """Run the whole API against one isolated, durable database.
 
-    A file database is intentional: the command delivery service creates its
-    own sessions while a WebSocket is active, so an in-memory connection would
-    not exercise the real durable-delivery path.
+    A file/one-off database is intentional: the command delivery service
+    creates its own sessions while a WebSocket is active, so an in-memory
+    connection would not exercise the real durable-delivery path.
     """
 
-    database_path = tmp_path / "tazabak-test.db"
-    test_engine = create_engine(
-        f"sqlite:///{database_path.as_posix()}",
-        connect_args={"check_same_thread": False, "timeout": 30},
-        pool_pre_ping=True,
-    )
+    postgres_db_name: str | None = None
 
-    @event.listens_for(test_engine, "connect")
-    def configure_sqlite(dbapi_connection: object, _: object) -> None:
-        cursor = dbapi_connection.cursor()  # type: ignore[attr-defined]
-        try:
-            cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.execute("PRAGMA journal_mode=WAL")
-            cursor.execute("PRAGMA busy_timeout=5000")
-        finally:
-            cursor.close()
+    if _TEST_DATABASE_URL:
+        # На PostgreSQL изоляция теста — отдельная база, а не отдельный файл:
+        # CREATE DATABASE не выполняется внутри транзакции, поэтому админский
+        # engine работает в автокоммите и закрывается сразу после создания.
+        postgres_db_name = f"tazabak_test_{uuid.uuid4().hex[:12]}"
+        admin_engine = create_engine(_TEST_DATABASE_URL, isolation_level="AUTOCOMMIT")
+        with admin_engine.connect() as connection:
+            connection.execute(text(f'CREATE DATABASE "{postgres_db_name}"'))
+        admin_engine.dispose()
+
+        test_url = make_url(_TEST_DATABASE_URL).set(database=postgres_db_name)
+        test_engine = create_engine(str(test_url), pool_pre_ping=True)
+    else:
+        database_path = tmp_path / "tazabak-test.db"
+        test_engine = create_engine(
+            f"sqlite:///{database_path.as_posix()}",
+            connect_args={"check_same_thread": False, "timeout": 30},
+            pool_pre_ping=True,
+        )
+
+        @event.listens_for(test_engine, "connect")
+        def configure_sqlite(dbapi_connection: object, _: object) -> None:
+            cursor = dbapi_connection.cursor()  # type: ignore[attr-defined]
+            try:
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA busy_timeout=5000")
+            finally:
+                cursor.close()
 
     Base.metadata.create_all(test_engine)
     test_session_factory = sessionmaker(
@@ -99,5 +124,14 @@ def api(
         application.dependency_overrides.clear()
         websocket_service.connected_devices.clear()
         websocket_service._send_locks.clear()  # type: ignore[attr-defined]
+        # drop_all needs the database to still exist, so it runs before the
+        # PostgreSQL branch below drops the whole thing. On SQLite this is
+        # what actually clears the file's tables; on Postgres it is mostly
+        # redundant with DROP DATABASE but cheap and harmless to keep.
         Base.metadata.drop_all(test_engine)
         test_engine.dispose()
+        if postgres_db_name:
+            admin_engine = create_engine(_TEST_DATABASE_URL, isolation_level="AUTOCOMMIT")
+            with admin_engine.connect() as connection:
+                connection.execute(text(f'DROP DATABASE IF EXISTS "{postgres_db_name}"'))
+            admin_engine.dispose()
