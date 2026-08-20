@@ -22,7 +22,8 @@ from app.config import settings
 from app.database import get_db
 from app.models import Alert, BioAnalysis, Device, DeviceCommand, User, utcnow
 from app.schemas import BioResponse, BreadClassificationResponse, DEVICE_ID_PATTERN
-from app.services.clip_bread import ClipAnalysisError, bread_status, classify_bread
+from app.services.bread_vision import classify as classify_bread
+from app.services.clip_bread import ClipAnalysisError, bread_status
 from app.services.commands import record_delivery
 from app.services.device_locks import serialize_device
 from app.services.files import InvalidImageError, remove_stored_image, save_image_upload

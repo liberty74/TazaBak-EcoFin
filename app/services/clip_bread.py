@@ -73,11 +73,16 @@ class BreadClassification:
     confidence: float
     probabilities: dict[str, float]
     model: str
+    # Which method produced the numbers. CLIP computes a softmax over cosine
+    # similarities; the remote engine reports its own confidence. The screen
+    # names the engine so it never claims one while showing the other.
+    engine: str = "clip-zero-shot"
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "decision": self.decision,
             "confidence": self.confidence,
+            "engine": self.engine,
             "probabilities": self.probabilities,
             "model": self.model,
         }
