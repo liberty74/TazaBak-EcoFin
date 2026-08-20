@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Generator
 
-from sqlalchemy import event, text
+from sqlalchemy import event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy import create_engine
 
@@ -20,11 +20,18 @@ class Base(DeclarativeBase):
 
 
 _is_sqlite = settings.database_url.startswith("sqlite")
-engine = create_engine(
-    settings.database_url,
-    connect_args={"check_same_thread": False, "timeout": 30} if _is_sqlite else {},
-    pool_pre_ping=True,
-)
+
+# pool_pre_ping ловит соединения, разорванные сервером после простоя — на
+# PostgreSQL за linger-таймаутом это случается, на файле SQLite проверка
+# просто ничего не стоит.
+_engine_kwargs: dict = {"pool_pre_ping": True}
+if _is_sqlite:
+    _engine_kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}
+else:
+    _engine_kwargs["pool_size"] = 5
+    _engine_kwargs["max_overflow"] = 10
+
+engine = create_engine(settings.database_url, **_engine_kwargs)
 SessionLocal = sessionmaker(
     bind=engine,
     class_=Session,
@@ -58,108 +65,54 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def apply_compatibility_migrations() -> None:
-    """Apply additive SQLite changes that ``create_all`` cannot perform.
+    """Apply additive column changes that ``create_all`` cannot perform.
 
-    The project uses a local SQLite file during the hackathon. Existing files
-    predate account passwords, so this migration adds the nullable column once
-    without deleting demo data.
+    ``create_all`` builds missing tables but never alters existing ones, so a
+    database created by an earlier version keeps its old column set. These
+    migrations add the missing columns in place, without dropping demo data.
+
+    The schema is inspected through SQLAlchemy rather than ``PRAGMA``: the same
+    code then covers both SQLite and PostgreSQL. Skipping the whole routine on
+    PostgreSQL used to be safe only because every PostgreSQL database was
+    brand new — the next schema addition would have silently missed it.
     """
 
-    if not _is_sqlite:
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    if "users" not in existing_tables:
+        logger.debug("Skipping compatibility migrations: schema not created yet")
         return
 
+    def columns_of(table: str) -> set[str]:
+        if table not in existing_tables:
+            return set()
+        return {column["name"] for column in inspector.get_columns(table)}
+
+    # Оба диалекта понимают этот минимальный набор типов одинаково; JSON в
+    # PostgreSQL становится настоящим json-столбцом, в SQLite — текстом.
+    additions: tuple[tuple[str, str, str, str | None], ...] = (
+        ("users", "password_hash", "VARCHAR(256)", None),
+        ("cost_profiles", "depot_latitude", "FLOAT", "53.2650"),
+        ("cost_profiles", "depot_longitude", "FLOAT", "69.4300"),
+        ("cost_profiles", "hardware_cost_kzt", "FLOAT", "21500.0"),
+        ("cost_profiles", "business_subscription_kzt_per_month", "FLOAT", "9000.0"),
+        ("cost_profiles", "carbon_price_kzt_per_ton", "FLOAT", "2500.0"),
+        ("cost_profiles", "sponsor_kzt_per_active_resident", "FLOAT", "150.0"),
+        ("devices", "camera_stream_url", "VARCHAR(512)", None),
+        ("vision_frames", "detections", "JSON", "'[]'"),
+        # Анализы до CLIP остаются с пустым объектом: их решала старая
+        # COCO-эвристика, и выдавать их за результат CLIP нельзя.
+        ("bio_analyses", "classification", "JSON", "'{}'"),
+    )
+
     with engine.begin() as connection:
-        # A fresh checkout has no database file yet. PRAGMA on a missing table
-        # returns nothing, so an unguarded ALTER would fail on first start.
-        existing_tables = {
-            row[0]
-            for row in connection.execute(
-                text("SELECT name FROM sqlite_master WHERE type = 'table'")
-            )
-        }
-        if "users" not in existing_tables:
-            logger.debug("Skipping SQLite migrations: schema not created yet")
-            return
-
-        columns = {
-            row["name"]
-            for row in connection.execute(text("PRAGMA table_info(users)")).mappings()
-        }
-        if "password_hash" not in columns:
-            connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(256)"))
-            logger.info("Applied SQLite migration: users.password_hash")
-        if "school_class" not in columns:
-            connection.execute(text("ALTER TABLE users ADD COLUMN school_class VARCHAR(32)"))
-            logger.info("Applied SQLite migration: users.school_class")
-
-        profile_columns = {
-            row["name"]
-            for row in connection.execute(
-                text("PRAGMA table_info(cost_profiles)")
-            ).mappings()
-        }
-        if profile_columns and "depot_latitude" not in profile_columns:
-            # Kokshetau depot, refined on site. A closed tour needs a start.
-            connection.execute(
-                text(
-                    "ALTER TABLE cost_profiles "
-                    "ADD COLUMN depot_latitude FLOAT NOT NULL DEFAULT 53.2650"
-                )
-            )
-            connection.execute(
-                text(
-                    "ALTER TABLE cost_profiles "
-                    "ADD COLUMN depot_longitude FLOAT NOT NULL DEFAULT 69.4300"
-                )
-            )
-            logger.info("Applied SQLite migration: cost_profiles depot coordinates")
-
-        if profile_columns and "hardware_cost_kzt" not in profile_columns:
-            # Параметры выручки: себестоимость железа, тариф для бизнеса,
-            # цена углеродной единицы и ставка спонсора.
-            for column, default in (
-                ("hardware_cost_kzt", "21500.0"),
-                ("business_subscription_kzt_per_month", "9000.0"),
-                ("carbon_price_kzt_per_ton", "2500.0"),
-                ("sponsor_kzt_per_active_resident", "150.0"),
-            ):
-                connection.execute(
-                    text(
-                        "ALTER TABLE cost_profiles "
-                        f"ADD COLUMN {column} FLOAT NOT NULL DEFAULT {default}"
-                    )
-                )
-            logger.info("Applied SQLite migration: cost_profiles revenue parameters")
-
-        device_columns = {
-            row["name"]
-            for row in connection.execute(text("PRAGMA table_info(devices)")).mappings()
-        }
-        if device_columns and "camera_stream_url" not in device_columns:
-            connection.execute(text("ALTER TABLE devices ADD COLUMN camera_stream_url VARCHAR(512)"))
-            logger.info("Applied SQLite migration: devices.camera_stream_url")
-
-        vision_columns = {
-            row["name"]
-            for row in connection.execute(text("PRAGMA table_info(vision_frames)")).mappings()
-        }
-        if vision_columns and "detections" not in vision_columns:
-            connection.execute(
-                text("ALTER TABLE vision_frames ADD COLUMN detections JSON NOT NULL DEFAULT '[]'")
-            )
-            logger.info("Applied SQLite migration: vision_frames.detections")
-
-        bio_columns = {
-            row["name"]
-            for row in connection.execute(text("PRAGMA table_info(bio_analyses)")).mappings()
-        }
-        if bio_columns and "classification" not in bio_columns:
-            # Analyses recorded before CLIP keep an empty object: they were
-            # decided by the old COCO rule and must not look like CLIP results.
-            connection.execute(
-                text(
-                    "ALTER TABLE bio_analyses "
-                    "ADD COLUMN classification JSON NOT NULL DEFAULT '{}'"
-                )
-            )
-            logger.info("Applied SQLite migration: bio_analyses.classification")
+        for table, column, column_type, default in additions:
+            if column in columns_of(table):
+                continue
+            if table not in existing_tables:
+                continue
+            clause = f"ALTER TABLE {table} ADD COLUMN {column} {column_type}"
+            if default is not None:
+                clause += f" NOT NULL DEFAULT {default}"
+            connection.execute(text(clause))
+            logger.info("Applied migration: %s.%s", table, column)
