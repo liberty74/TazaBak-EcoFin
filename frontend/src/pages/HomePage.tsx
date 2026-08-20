@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Camera, Map as MapIcon, ChevronRight, Leaf, Star, Info, HeartHandshake, Award } from 'lucide-react';
+import { Camera, Map as MapIcon, ChevronRight, Leaf, Star, HeartHandshake, Award } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import { useLocaleTheme } from '../store/LocaleThemeContext';
@@ -125,54 +125,35 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* Recent Activity or News */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <div className="flex items-center justify-between mb-4 px-2">
-            <h3 className="font-bold text-lg text-graphite dark:text-white">{t('recentOps')}</h3>
-            <button onClick={() => navigate('/profile')} className="text-primary text-sm font-medium hover:underline">Профиль</button>
-          </div>
-          <div className="space-y-3">
-            {isLoading ? (
-              <div className="animate-pulse bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-sand dark:border-zinc-800 h-[72px]" />
-            ) : recentTransactions.length > 0 ? (
-              recentTransactions.map((tx) => (
-                <div key={tx.id} className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-sand dark:border-zinc-800 flex items-center justify-between">
-                  <div>
-                    <h4 className="font-bold text-sm text-graphite dark:text-white">{tx.description}</h4>
-                    <span className="text-[10px] text-graphite/40 dark:text-zinc-500 block">
-                      {new Date(tx.created_at).toLocaleString(locale === 'RU' ? 'ru-RU' : 'kk-KZ')}
-                    </span>
-                  </div>
-                  <div className={`font-bold ${tx.amount > 0 ? 'text-primary' : 'text-graphite dark:text-zinc-300'}`}>
-                    {tx.amount > 0 ? '+' : ''}{tx.amount}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-sand dark:border-zinc-800 text-center text-sm text-graphite/50 dark:text-zinc-500">
-                {t('noOps')}
-              </div>
-            )}
-          </div>
+      {/* Последние операции — только реальные записи из ledger, без
+          придуманной новостной ленты рядом: под неё нет источника данных. */}
+      <div>
+        <div className="flex items-center justify-between mb-4 px-2">
+          <h3 className="font-bold text-lg text-graphite dark:text-white">{t('recentOps')}</h3>
+          <button onClick={() => navigate('/profile')} className="text-primary text-sm font-medium hover:underline">Профиль</button>
         </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-4 px-2">
-            <h3 className="font-bold text-lg text-graphite dark:text-white">{t('newsTitle')}</h3>
-          </div>
-          <div className="space-y-3">
-            <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-sand dark:border-zinc-800 flex gap-4 items-start">
-              <div className="bg-cream dark:bg-zinc-800 p-3 rounded-xl text-primary shrink-0">
-                <Info className="w-6 h-6" />
+        <div className="space-y-3">
+          {isLoading ? (
+            <div className="animate-pulse bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-sand dark:border-zinc-800 h-[72px]" />
+          ) : recentTransactions.length > 0 ? (
+            recentTransactions.map((tx) => (
+              <div key={tx.id} className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-sand dark:border-zinc-800 flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-sm text-graphite dark:text-white">{tx.description}</h4>
+                  <span className="text-[10px] text-graphite/40 dark:text-zinc-500 block">
+                    {new Date(tx.created_at).toLocaleString(locale === 'RU' ? 'ru-RU' : 'kk-KZ')}
+                  </span>
+                </div>
+                <div className={`font-bold ${tx.amount > 0 ? 'text-primary' : 'text-graphite dark:text-zinc-300'}`}>
+                  {tx.amount > 0 ? '+' : ''}{tx.amount}
+                </div>
               </div>
-              <div>
-                <h4 className="font-bold text-sm mb-1 text-graphite dark:text-white">Новый бак в микрорайоне Сарыарка!</h4>
-                <p className="text-xs text-graphite/60 dark:text-zinc-400 leading-relaxed">{t('newsDesc')}</p>
-                <span className="text-[10px] text-graphite/40 dark:text-zinc-500 mt-2 block">Презентационный контент</span>
-              </div>
+            ))
+          ) : (
+            <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-sand dark:border-zinc-800 text-center text-sm text-graphite/50 dark:text-zinc-500">
+              {t('noOps')}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

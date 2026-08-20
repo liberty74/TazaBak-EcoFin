@@ -47,8 +47,6 @@ export const translations = {
     metricTasks: 'Эко-заданий',
     recentOps: 'Последние операции',
     noOps: 'У вас пока нет операций. Начните с первой сдачи хлеба.',
-    newsTitle: 'Демо-новости проекта',
-    newsDesc: 'Мы установили новый смарт-бак для сбора хлеба в микрорайоне Сарыарка.',
 
     // Profile Page
     profileTitle: 'Личный кабинет',
@@ -212,8 +210,6 @@ export const translations = {
     metricTasks: 'Эко-тапсырмалар',
     recentOps: 'Соңғы операциялар',
     noOps: 'Сізде әлі операциялар жоқ. Алғашқы нан тапсырудан бастаңыз.',
-    newsTitle: 'Жобаның демо-жаңалықтары',
-    newsDesc: 'Сарыарқа шағын ауданында нан жинауға арналған жаңа смарт-бак орнаттық.',
 
     // Profile Page
     profileTitle: 'Жеке кабинет',
@@ -358,6 +354,8 @@ export const LocaleThemeProvider = ({ children }: { children: ReactNode }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
     const saved = localStorage.getItem('appTheme');
     if (saved === 'light' || saved === 'dark') return saved;
+    // Светлая — основная: витрина и рабочие экраны собраны под неё,
+    // тёмная остаётся выбором пользователя.
     return 'light';
   });
 
