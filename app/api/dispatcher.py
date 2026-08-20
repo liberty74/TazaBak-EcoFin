@@ -63,6 +63,7 @@ def list_device_statuses(db: Session = Depends(get_db)) -> list[DeviceTelemetryS
         statuses.append(
             DeviceTelemetryStatus(
                 device_id=device.id,
+                has_hardware=device.has_hardware,
                 lid_status=device.lid_status,
                 last_seen_at=device.last_seen_at,
                 temperature_in_c=telemetry.temp_in_c if telemetry else None,

@@ -299,6 +299,45 @@ def test_retired_container_rejects_new_telemetry(api) -> None:
         assert db.get(Device, device_id) is None
 
 
+def test_only_devices_that_reported_are_marked_as_hardware(api) -> None:
+    """Экран управления должен показывать собранные баки, а не адреса из плана.
+
+    Признак поднимает единственное доказательство существования платы —
+    замер, пришедший по сети. Демонстрационная история пишется в таблицу
+    напрямую и его не задевает, поэтому запланированная площадка остаётся
+    непомеченной.
+    """
+
+    client, session_factory, _ = api
+
+    with session_factory() as db:
+        prototype = db.get(Device, "municipal-prototype-001")
+        planned = db.get(Device, "municipal-abaya-12")
+        assert prototype is not None and planned is not None
+        # Прототип собран и помечен сидом, площадка из плана — нет.
+        assert prototype.has_hardware is True
+        assert planned.has_hardware is False
+
+    response = client.post(
+        "/api/sensors/ingest", json=telemetry_payload("municipal-abaya-12", 16.0)
+    )
+    assert response.status_code == 200
+
+    with session_factory() as db:
+        assert db.get(Device, "municipal-abaya-12").has_hardware is True
+
+    statuses = {
+        row["device_id"]: row["has_hardware"]
+        for row in client.get(
+            "/api/dispatcher/devices/status", headers=DISPATCHER_HEADERS
+        ).json()
+    }
+    assert statuses["municipal-prototype-001"] is True
+    assert statuses["municipal-abaya-12"] is True
+    # Ни один замер оттуда не приходил.
+    assert statuses["municipal-auezova-31"] is False
+
+
 def test_temperature_above_50_sends_websocket_and_creates_alert(api) -> None:
     client, session_factory, _ = api
     device_id = "municipal-fire"

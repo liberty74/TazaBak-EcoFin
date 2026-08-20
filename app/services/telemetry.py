@@ -103,6 +103,11 @@ def process_telemetry(db: Session, payload: TelemetryIn) -> TelemetryResult:
     received_at = utcnow()
     ensure_municipal_device_is_active(db, payload.device_id)
     device = get_or_create_device(db, payload.device_id, "municipal")
+    # Замер, пришедший по сети, — единственное доказательство, что на площадке
+    # действительно стоит плата. Демонстрационная история пишется в таблицу
+    # напрямую и сюда не попадает.
+    if not device.has_hardware:
+        device.has_hardware = True
     previous = db.scalar(
         select(Telemetry)
         .where(Telemetry.device_id == payload.device_id)

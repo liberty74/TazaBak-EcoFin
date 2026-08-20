@@ -99,6 +99,7 @@ def apply_compatibility_migrations() -> None:
         ("cost_profiles", "carbon_price_kzt_per_ton", "FLOAT", "2500.0"),
         ("cost_profiles", "sponsor_kzt_per_active_resident", "FLOAT", "150.0"),
         ("devices", "camera_stream_url", "VARCHAR(512)", None),
+        ("devices", "has_hardware", "BOOLEAN", "FALSE"),
         ("vision_frames", "detections", "JSON", "'[]'"),
         # Анализы до CLIP остаются с пустым объектом: их решала старая
         # COCO-эвристика, и выдавать их за результат CLIP нельзя.

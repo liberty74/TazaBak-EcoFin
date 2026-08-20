@@ -308,6 +308,9 @@ class DeviceCommandResponse(BaseModel):
 
 class DeviceTelemetryStatus(BaseModel):
     device_id: str
+    # Есть ли на площадке плата. Экран управления показывает только такие:
+    # у запланированного адреса нечего открывать и не на что смотреть.
+    has_hardware: bool = False
     lid_status: str
     last_seen_at: datetime
     temperature_in_c: float | None = None

@@ -192,10 +192,30 @@ def _seed_containers(db: Session) -> None:
         db.scalars(select(BinContainer.device_id)).all()
     )
 
+    # Собранные платы. Остальные адреса в списке — запланированные площадки:
+    # их уровень заполнения нужен прогнозу и маршруту, но заслонки и камеры у
+    # них нет. Без этой строчки экран управления был бы пустым до тех пор,
+    # пока прототип не включат в сеть.
+    devices_with_hardware = {"municipal-prototype-001"}
+
     for device_id, kind, name, address, latitude, longitude in container_data:
-        if db.get(Device, device_id) is None:
-            db.add(Device(id=device_id, kind=kind))
+        existing_device = db.get(Device, device_id)
+        if existing_device is None:
+            db.add(
+                Device(
+                    id=device_id,
+                    kind=kind,
+                    has_hardware=device_id in devices_with_hardware,
+                )
+            )
             db.flush()
+        elif device_id in devices_with_hardware and not existing_device.has_hardware:
+            # База, пережившая миграцию, получила признак со значением по
+            # умолчанию. Поднять его прототипу здесь — единственный способ не
+            # оставить экран управления пустым после обновления. Обратно
+            # признак не сбрасывается никогда: настоящее устройство могло
+            # поднять его само.
+            existing_device.has_hardware = True
         if device_id not in existing_container_devices:
             db.add(
                 BinContainer(

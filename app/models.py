@@ -36,6 +36,14 @@ class Device(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     kind: Mapped[str] = mapped_column(String(32), default="municipal", nullable=False)
+    # Стоит ли на этой площадке настоящее железо. Большинство точек в базе —
+    # запланированные адреса: они нужны прогнозу и маршруту, но открывать у них
+    # заслонку и смотреть камеру не у чего. Признак поднимается сам, когда
+    # устройство впервые присылает телеметрию по HTTP; демонстрационные строки
+    # пишутся в таблицу напрямую и его не задевают.
+    has_hardware: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
     fire_streak: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     lid_status: Mapped[str] = mapped_column(String(32), default="OPEN", nullable=False)
     camera_stream_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
