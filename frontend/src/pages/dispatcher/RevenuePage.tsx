@@ -17,7 +17,7 @@ import { cn } from '../../lib/utils';
 import { MAX_BAR_WIDTH, chartTokens, formatNumber } from '../../lib/chartTheme';
 import type { RevenueScenario, RevenueStream } from '../../api/types';
 
-/** Масштабы проекции. Пилот — факт, остальное подписано как проекция. */
+/** Масштабы. Пилот считается по установленным бакам, остальное — проекция. */
 const SCALES = [
   { containers: undefined, label: 'Пилот' },
   { containers: 300, label: '300 баков' },
@@ -82,7 +82,7 @@ function ScenarioTotals({
           isProjection ? 'text-muted-foreground' : 'text-white/90',
         )}
       >
-        регулярной выручки в месяц · {formatNumber(scenario.annual_recurring_kzt)} ₸ в год
+        потенциальной регулярной выручки в месяц · {formatNumber(scenario.annual_recurring_kzt)} ₸ в год
       </p>
 
       {/* Разовая маржа держится отдельно от регулярной: сложить их — значит
@@ -96,6 +96,17 @@ function ScenarioTotals({
         Плюс {formatNumber(scenario.one_time_kzt)} ₸ разово при монтаже
         {' '}{scenario.containers} баков — в сумму выше не входит.
       </p>
+
+      {/* Ни одна цифра на экране не является полученными деньгами. Пилот
+          показывает, что дал бы тариф на уже установленных баках; платящих
+          клиентов пока нет. Назвать это выручкой значило бы соврать жюри. */}
+      {!isProjection && (
+        <p className="mt-4 text-xs text-white/70">
+          Это не полученные деньги: столько принёс бы тариф на установленных
+          баках. Договоров с плательщиками пока нет — считаем юнит-экономику,
+          а не выручку.
+        </p>
+      )}
     </div>
   );
 }
@@ -166,7 +177,7 @@ export default function RevenuePage() {
         <div>
           <h1 className="text-2xl font-bold">Источники дохода</h1>
           <p className="text-sm text-muted-foreground">
-            На чём зарабатывает платформа и при каком масштабе это окупается
+            На чём платформа будет зарабатывать и при каком масштабе это окупается
           </p>
         </div>
         <div className="flex gap-1 bg-muted p-1 rounded-xl" role="group" aria-label="Масштаб">

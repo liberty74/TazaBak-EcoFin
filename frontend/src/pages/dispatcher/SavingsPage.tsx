@@ -140,7 +140,7 @@ export default function SavingsPage() {
       {/* Главное число экрана. Жюри трека ищет деньги — показываем их сразу. */}
       <div className="bg-gradient-to-br from-primary to-primary-light border border-primary-light rounded-3xl p-6 md:p-8 text-white shadow-sm">
         <p className="text-white/80 text-sm font-medium">
-          Сэкономлено за {days} дней вывозом по факту заполненности
+          Расчётная экономия за {days} дней при вывозе по факту заполненности
         </p>
         <p className="text-5xl md:text-6xl font-black tracking-tight mt-2">
           {isLoading ? '—' : formatNumber(report?.money.total_kzt ?? 0)}
@@ -174,7 +174,7 @@ export default function SavingsPage() {
         />
         <StatTile
           icon={<Coins className="w-5 h-5" />}
-          label="Денег сэкономлено"
+          label="Экономия по расчёту"
           value={isLoading ? '—' : formatNumber(report?.money.total_kzt ?? 0)}
           unit="₸"
         />
@@ -190,7 +190,7 @@ export default function SavingsPage() {
       <section className="bg-card border border-border rounded-3xl p-5 md:p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
           <div>
-            <h2 className="font-bold text-lg">Сэкономленные деньги по неделям</h2>
+            <h2 className="font-bold text-lg">Расчётная экономия по неделям</h2>
             <p className="text-sm text-muted-foreground">
               Тенге, не потраченные на топливо и работу бригады
             </p>
@@ -271,7 +271,7 @@ export default function SavingsPage() {
                     fontSize: 13,
                   }}
                   labelFormatter={(value) => `Неделя с ${formatWeek(String(value))}`}
-                  formatter={(value) => [`${formatNumber(Number(value ?? 0))} ₸`, 'Сэкономлено']}
+                  formatter={(value) => [`${formatNumber(Number(value ?? 0))} ₸`, 'Экономия']}
                 />
                 <Area
                   type="monotone"

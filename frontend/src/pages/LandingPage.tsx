@@ -73,7 +73,7 @@ export default function LandingPage() {
     {
       value: savings ? NUMBER.format(savings.money.total_kzt) : DASH,
       unit: '₸',
-      caption: 'топливо и время бригады, которых не потратили',
+      caption: 'топливо и время бригады по расчётной модели пилота',
     },
     {
       value: savings ? DECIMAL.format(savings.resources.co2_kg_saved) : DASH,
@@ -366,7 +366,7 @@ export default function LandingPage() {
 
             <div className="rounded-2xl border border-ink/10 bg-paper p-7">
               <p className="mono-label text-faint">
-                {revenue?.projection ? 'Проекция на 1 200 баков' : 'Пилот, факт'}
+                {revenue?.projection ? 'Проекция на 1 200 баков' : 'Пилот, расчёт по тарифу'}
               </p>
               <p className="display-type mt-4 text-5xl text-ink">
                 {scenario ? NUMBER.format(scenario.monthly_recurring_kzt) : DASH}
@@ -375,7 +375,7 @@ export default function LandingPage() {
               <p className="mt-2 text-xs text-faint">
                 {revenue?.projection
                   ? 'расчёт по масштабу города, а не измерение'
-                  : 'регулярная выручка пилота'}
+                  : 'сколько принёс бы тариф на десяти баках — плательщиков ещё нет'}
               </p>
 
               <ul className="mt-7 space-y-3">
