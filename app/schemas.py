@@ -66,7 +66,7 @@ class VisionResponse(BaseModel):
 
 
 class BreadClassificationResponse(BaseModel):
-    """What CLIP compared the photo against, and how strongly it matched.
+    """What the photo was compared against, and how strongly it matched.
 
     The probabilities are part of the answer on purpose: a resident whose
     bread was rejected can see how close the call was.
@@ -76,6 +76,9 @@ class BreadClassificationResponse(BaseModel):
     confidence: float = Field(ge=0, le=1)
     probabilities: dict[str, float]
     model: str
+    # Чем посчитано. Без этого поля экран подписывал бы любой ответ именем
+    # CLIP, включая тот, что пришёл от удалённого движка.
+    engine: Literal["clip-zero-shot", "gemini-vision"] = "clip-zero-shot"
 
 
 class BioResponse(BaseModel):
