@@ -41,7 +41,7 @@ export default function ShopPage() {
     try {
       const idempotencyKey = createRequestId();
       const res = await buyShopItem(user.id, itemId, idempotencyKey);
-      toast.success('Товар успешно приобретен!');
+      toast.success(t('purchaseSuccess'));
       queryClient.invalidateQueries({ queryKey: queryKeys.user.profile(user.id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.user.dashboard(user.id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.user.transactions(user.id) });
@@ -103,15 +103,15 @@ export default function ShopPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-primary mb-1">Магазин Наград</h1>
-          <p className="text-graphite/60">Обменивайте баллы на мерч и создавайте NFT</p>
+          <h1 className="text-3xl font-bold text-primary mb-1">{t('shopTitle')}</h1>
+          <p className="text-graphite/60">{t('shopSub')}</p>
         </div>
         <div className="bg-white border border-sand px-4 py-2 rounded-2xl flex items-center gap-3 shadow-sm shrink-0">
           <div className="bg-primary/10 p-2 rounded-full text-primary">
             <Leaf className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs text-graphite/50 font-medium leading-none">Ваш баланс</p>
+            <p className="text-xs text-graphite/50 font-medium leading-none">{t('yourBalance')}</p>
             <p className="font-bold text-lg leading-none mt-1">{points}</p>
           </div>
         </div>
@@ -123,14 +123,14 @@ export default function ShopPage() {
           onClick={() => setActiveTab('shop')}
           className={`px-6 py-2 rounded-xl font-bold text-sm transition-all cursor-pointer ${activeTab === 'shop' ? 'bg-white shadow-sm text-primary' : 'text-graphite/50 hover:text-graphite'}`}
         >
-          Каталог
+          {t('shopCatalog')}
         </button>
         <button 
           onClick={() => setActiveTab('mint')}
           className={`px-6 py-2 rounded-xl font-bold text-sm transition-all flex gap-2 items-center cursor-pointer ${activeTab === 'mint' ? 'bg-white shadow-sm text-primary' : 'text-graphite/50 hover:text-graphite'}`}
         >
           <Sparkles className="w-4 h-4" />
-          Создать NFT
+          {t('shopMintTab')}
         </button>
       </div>
 
@@ -151,7 +151,7 @@ export default function ShopPage() {
               >
                 {!item.is_active && (
                   <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex items-center justify-center">
-                    <span className="bg-graphite text-white font-bold px-4 py-2 rounded-xl">Нет в наличии</span>
+                    <span className="bg-graphite text-white font-bold px-4 py-2 rounded-xl">{t('outOfStock')}</span>
                   </div>
                 )}
                 
@@ -179,7 +179,7 @@ export default function ShopPage() {
                       <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
                       <>
-                        <span>{item.price_points} баллов</span>
+                        <span>{item.price_points} {t('pointsWord')}</span>
                         <ShoppingBag className="w-4 h-4" />
                       </>
                     )}

@@ -337,7 +337,7 @@ export default function DispatcherLayout() {
             )}
           >
             <AlertTriangle className="w-5 h-5 mb-1" />
-            <span className="text-[10px] font-semibold">Алерты</span>
+            <span className="text-[10px] font-semibold">{t('ecoAlertsShort')}</span>
           </NavLink>
           <NavLink
             to="/dispatcher/devices"
@@ -347,7 +347,7 @@ export default function DispatcherLayout() {
             )}
           >
             <RadioReceiver className="w-5 h-5 mb-1" />
-            <span className="text-[10px] font-semibold">Баки</span>
+            <span className="text-[10px] font-semibold">{t('ecoBinsShort')}</span>
           </NavLink>
           <button onClick={() => setMobileMenuOpen((open) => !open)} aria-expanded={mobileMenuOpen} aria-label="Открыть меню диспетчера" className={cn("flex h-16 min-w-0 flex-1 flex-col items-center justify-center transition-colors", mobileMenuOpen || ['/dispatcher/volunteer', '/dispatcher/settings', '/dispatcher/bakery', '/dispatcher/revenue', '/dispatcher/forecast', '/dispatcher/overview'].includes(location.pathname) ? "text-primary" : "text-foreground/50")}>
             <Menu className="mb-1 h-5 w-5" />

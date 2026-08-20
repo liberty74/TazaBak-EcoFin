@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../store/AuthContext';
+import { useLocaleTheme } from '../store/LocaleThemeContext';
 import { useQuery } from '@tanstack/react-query';
 import { fetchUserProfile, fetchUserTransactions, fetchUserNfts } from '../api';
 import { queryKeys } from '../api/queryKeys';
@@ -9,6 +10,7 @@ import EcoNftImage from '../components/common/EcoNftImage';
 
 export default function ProfilePage() {
   const { user } = useAuth();
+  const { t } = useLocaleTheme();
   
   const { data: profile, isLoading: isProfileLoading } = useQuery({
     queryKey: queryKeys.user.profile(user?.id),
@@ -42,11 +44,11 @@ export default function ProfilePage() {
             <div className="flex flex-wrap gap-3 justify-center md:justify-start">
               <div className="bg-cream border border-sand px-4 py-2 rounded-xl flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-primary" />
-                <span className="font-bold">{profile?.points || 0} баллов</span>
+                <span className="font-bold">{profile?.points || 0} {t('pointsWord')}</span>
               </div>
               <div className="bg-cream border border-sand px-4 py-2 rounded-xl flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-warning" />
-                <span className="font-bold">{profile?.status_tier || 'Новичок'}</span>
+                <span className="font-bold">{profile?.status_tier || t('newbieTier')}</span>
               </div>
             </div>
           </div>
@@ -59,7 +61,7 @@ export default function ProfilePage() {
         <div className="space-y-4">
           <h2 className="text-xl font-bold text-graphite flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            Моя Коллекция (Eco-NFT)
+            {t('myCollection')}
           </h2>
           <div className="bg-white border border-sand rounded-3xl p-6 shadow-sm min-h-[300px]">
             {isNftsLoading ? (
@@ -100,7 +102,7 @@ export default function ProfilePage() {
         <div className="space-y-4">
           <h2 className="text-xl font-bold text-graphite flex items-center gap-2">
             <History className="w-5 h-5 text-primary" />
-            История транзакций
+            {t('txHistory')}
           </h2>
           <div className="bg-white border border-sand rounded-3xl shadow-sm overflow-hidden flex flex-col h-[400px]">
             <div className="flex-1 overflow-y-auto p-2">

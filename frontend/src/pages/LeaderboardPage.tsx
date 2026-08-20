@@ -38,13 +38,13 @@ export default function LeaderboardPage() {
       <div className="flex justify-between items-center mb-2">
         <div>
           <h1 className="text-3xl font-extrabold text-primary tracking-tight">{t('navLeaderboard')}</h1>
-          <p className="text-graphite/60 text-sm">Каждый вклад важен • {t('city')}</p>
+          <p className="text-graphite/60 text-sm">{t('leaderboardSub')} • {t('city')}</p>
         </div>
         <button 
           onClick={() => navigate('/scan')}
           className="bg-primary hover:bg-primary/95 text-white font-bold text-sm px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
         >
-          <span>Получить баллы</span>
+          <span>{t('getPointsBtn')}</span>
           <ArrowUpRight className="w-4 h-4" />
         </button>
       </div>
@@ -81,7 +81,7 @@ export default function LeaderboardPage() {
                     {top3[1].points}
                   </div>
                   <div className="absolute -top-3 bg-slate-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    2 Место
+                    {t('place2')}
                   </div>
                 </motion.div>
               )}
@@ -106,7 +106,7 @@ export default function LeaderboardPage() {
                     {top3[0].points}
                   </div>
                   <div className="absolute -top-3 bg-yellow-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">
-                    👑 1 Место
+                    👑 {t('place1')}
                   </div>
                 </motion.div>
               )}
@@ -129,7 +129,7 @@ export default function LeaderboardPage() {
                     {top3[2].points}
                   </div>
                   <div className="absolute -top-3 bg-amber-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    3 Место
+                    {t('place3')}
                   </div>
                 </motion.div>
               )}
@@ -144,7 +144,7 @@ export default function LeaderboardPage() {
                   #{userRank}
                 </div>
                 <div>
-                  <p className="font-bold text-graphite">Ваша позиция в рейтинге</p>
+                  <p className="font-bold text-graphite">{t('yourPosition')}</p>
                   <p className="text-xs text-graphite/60 capitalize">{userProfile.status_tier} • {userProfile.role}</p>
                 </div>
               </div>
@@ -156,7 +156,7 @@ export default function LeaderboardPage() {
 
           {/* Rest of the list */}
           <div className="bg-white border border-sand rounded-3xl p-4 md:p-6 shadow-sm">
-            <h3 className="font-bold text-lg mb-4 text-graphite">Рейтинг эко-активистов</h3>
+            <h3 className="font-bold text-lg mb-4 text-graphite">{t('activistsRating')}</h3>
             <div className="divide-y divide-sand">
               {remaining.length > 0 ? (
                 remaining.map((activist, index) => {
@@ -176,7 +176,7 @@ export default function LeaderboardPage() {
                         </div>
                         <div>
                           <p className={`font-bold text-sm ${isSelf ? 'text-primary' : 'text-graphite'}`}>
-                            {activist.username} {isSelf && <span className="text-xs text-primary-light font-medium ml-1">(Вы)</span>}
+                            {activist.username} {isSelf && <span className="text-xs text-primary-light font-medium ml-1">({t('youMark')})</span>}
                           </p>
                           <span className="text-xs text-graphite/50 capitalize">{activist.status_tier}</span>
                         </div>

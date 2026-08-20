@@ -67,7 +67,7 @@ export default function HomePage() {
           </div>
           <div>
             <h3 className="text-xl font-bold mb-1">{t('scanBread')}</h3>
-            <p className="text-white/80 text-sm">Отсканируйте хлеб на содержание плесени и откройте смарт-бак</p>
+            <p className="text-white/80 text-sm">{t('homeScanDesc')}</p>
           </div>
         </button>
         
@@ -84,7 +84,7 @@ export default function HomePage() {
           <div className="flex items-end justify-between">
             <div>
               <h3 className="text-xl font-bold mb-1">{t('findBin')}</h3>
-              <p className="text-graphite/60 dark:text-zinc-400 text-sm">Интерактивная карта смарт-баков TazaBAK</p>
+              <p className="text-graphite/60 dark:text-zinc-400 text-sm">{t('homeMapDesc')}</p>
             </div>
             <ChevronRight className="w-6 h-6 text-graphite/30 group-hover:text-primary transition-colors" />
           </div>
@@ -102,7 +102,7 @@ export default function HomePage() {
             </div>
             <div>
               <h4 className="font-bold text-graphite dark:text-white">{t('navVolunteer')}</h4>
-              <p className="text-sm text-graphite/60 dark:text-zinc-400">Помощь приютам для бездомных животных</p>
+              <p className="text-sm text-graphite/60 dark:text-zinc-400">{t('homeVolunteerDesc')}</p>
             </div>
           </div>
           <ChevronRight className="w-5 h-5 text-graphite/30 group-hover:text-bread transition-colors" />
@@ -118,7 +118,7 @@ export default function HomePage() {
             </div>
             <div>
               <h4 className="font-bold text-graphite dark:text-white">{t('navLeaderboard')}</h4>
-              <p className="text-sm text-graphite/60 dark:text-zinc-400">Лидеры экологического движения Көкшетау</p>
+              <p className="text-sm text-graphite/60 dark:text-zinc-400">{t('homeLeaderDesc')}</p>
             </div>
           </div>
           <ChevronRight className="w-5 h-5 text-graphite/30 group-hover:text-warning transition-colors" />
@@ -130,7 +130,7 @@ export default function HomePage() {
       <div>
         <div className="flex items-center justify-between mb-4 px-2">
           <h3 className="font-bold text-lg text-graphite dark:text-white">{t('recentOps')}</h3>
-          <button onClick={() => navigate('/profile')} className="text-primary text-sm font-medium hover:underline">Профиль</button>
+          <button onClick={() => navigate('/profile')} className="text-primary text-sm font-medium hover:underline">{t('navProfile')}</button>
         </div>
         <div className="space-y-3">
           {isLoading ? (

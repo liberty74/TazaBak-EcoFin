@@ -3,6 +3,7 @@ import { Camera, Upload, X, CheckCircle, Loader2, AlertTriangle, RefreshCw, Arro
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
+import { useLocaleTheme } from '../store/LocaleThemeContext';
 import { analyzeBio, BioResponse, BreadDecision } from '../api';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys, handleApiError, useApiHealth } from '../api';
@@ -33,6 +34,7 @@ export default function ScanPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useLocaleTheme();
   const queryClient = useQueryClient();
   // Витрина в облаке разворачивается без torch, и разбор фотографии там
   // недоступен. Сервис говорит об этом в /health, который и так опрашивается.
@@ -61,11 +63,11 @@ export default function ScanPage() {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        setError('Файл слишком большой. Максимальный размер 5 МБ.');
+        setError(t('scanFileTooLarge'));
         return;
       }
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-        setError('Неподдерживаемый формат. Используйте JPEG, PNG или WebP.');
+        setError(t('scanBadFormat'));
         return;
       }
       setImage(file);
@@ -106,8 +108,8 @@ export default function ScanPage() {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
-          <h1 className="mb-1 text-2xl font-bold text-foreground">Сдать хлеб</h1>
-          <p className="text-sm text-muted-foreground">Сделайте фото хлеба для умного бака</p>
+          <h1 className="mb-1 text-2xl font-bold text-foreground">{t('scanBread')}</h1>
+          <p className="text-sm text-muted-foreground">{t('scanSubtitle')}</p>
         </div>
       </div>
 
@@ -122,7 +124,7 @@ export default function ScanPage() {
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-warning">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
           <div className="text-sm">
-            <p className="font-medium">Разбор фотографии идёт на стенде, а не здесь.</p>
+            <p className="font-medium">{t('scanOfflineTitle')}</p>
             <p className="mt-1 opacity-90">
               CLIP и YOLOv8 считаются на машине с моделями: вдвоём они занимают
               около 700 МБ памяти, а бесплатный облачный инстанс даёт 512 МБ.
@@ -152,9 +154,9 @@ export default function ScanPage() {
                   <Camera className="w-8 h-8" />
                 </div>
                 <div className="text-center px-4">
-                  <p className="text-lg font-bold">Сделать фото или выбрать из галереи</p>
-                  <p className="mt-1 text-sm text-muted-foreground">На iPhone откроется выбор камеры или медиатеки</p>
-                  <p className="mt-2 text-xs text-muted-foreground">JPEG, PNG или WebP · до 5 МБ</p>
+                  <p className="text-lg font-bold">{t('scanCta')}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t('scanIphoneHint')}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{t('scanFormats')}</p>
                 </div>
               </button>
               <input
@@ -194,17 +196,17 @@ export default function ScanPage() {
                   {isScanning ? (
                     <>
                       <Loader2 className="w-6 h-6 animate-spin" />
-                      Анализируем через AI...
+                      {t('scanAnalyzing')}
                     </>
                   ) : analysisOffline ? (
                     <>
                       <AlertTriangle className="w-6 h-6" />
-                      Модель доступна на стенде
+                      {t('scanOfflineBtn')}
                     </>
                   ) : (
                     <>
                       <Upload className="w-6 h-6" />
-                      Отправить на проверку
+                      {t('scanSubmit')}
                     </>
                   )}
                 </button>

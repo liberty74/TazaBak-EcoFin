@@ -24,7 +24,7 @@ export default function AppLayout() {
 
   const navItems = [
     { to: '/home', icon: Home, label: t('navHome') },
-    { to: '/scan', icon: Camera, label: 'Сдать хлеб' },
+    { to: '/scan', icon: Camera, label: t('scanBread') },
     { to: '/map', icon: MapIcon, label: t('navMap') },
     { to: '/volunteer', icon: HandHeart, label: t('navVolunteer') },
     { to: '/shop', icon: ShoppingCart, label: t('navShop') },
@@ -37,17 +37,17 @@ export default function AppLayout() {
   const mobilePrimaryItems = [
     { to: '/home', icon: Home, label: t('navHome') },
     { to: '/map', icon: MapIcon, label: t('navMap') },
-    { to: '/scan', icon: Camera, label: 'Сдать' },
+    { to: '/scan', icon: Camera, label: t('navScanShort') },
     { to: '/volunteer', icon: HandHeart, label: t('navVolunteer') },
   ];
   const mobileMoreItems = [
-    { to: '/shop', icon: ShoppingCart, label: t('navShop'), description: 'Баллы и Eco-NFT' },
-    { to: '/collection', icon: Award, label: t('navCollection'), description: 'Ваши созданные NFT' },
-    { to: '/leaderboard', icon: Trophy, label: t('navLeaderboard'), description: 'Топ эко-активистов' },
-    { to: '/community', icon: MessageSquare, label: t('navCommunity'), description: 'Чат сообщества' },
-    { to: '/assistant', icon: Bot, label: t('navAssistant'), description: 'Советы от Баки' },
-    { to: '/profile', icon: UserCircle, label: 'Профиль', description: 'Баланс и история' },
-    { to: '/settings', icon: Settings, label: t('navSettings'), description: 'Язык и тема' },
+    { to: '/shop', icon: ShoppingCart, label: t('navShop'), description: t('shopDesc') },
+    { to: '/collection', icon: Award, label: t('navCollection'), description: t('collectionDesc') },
+    { to: '/leaderboard', icon: Trophy, label: t('navLeaderboard'), description: t('leaderboardDesc') },
+    { to: '/community', icon: MessageSquare, label: t('navCommunity'), description: t('communityDesc') },
+    { to: '/assistant', icon: Bot, label: t('navAssistant'), description: t('assistantDesc') },
+    { to: '/profile', icon: UserCircle, label: t('navProfile'), description: t('navProfileDesc') },
+    { to: '/settings', icon: Settings, label: t('navSettings'), description: t('settingsDesc') },
   ];
   const isMoreRouteActive = mobileMoreItems.some((item) => location.pathname === item.to);
 
@@ -192,7 +192,7 @@ export default function AppLayout() {
             <section className="absolute inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] max-h-[72dvh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-4 pb-6 shadow-2xl">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <p className="font-extrabold text-foreground">Все разделы</p>
+                  <p className="font-extrabold text-foreground">{t('allSections')}</p>
                   <p className="text-xs text-muted-foreground">{user?.username} · {user?.role}</p>
                 </div>
                 <button aria-label="Закрыть меню" onClick={() => setMobileMenuOpen(false)} className="rounded-full bg-muted p-2 text-foreground"><X className="h-5 w-5" /></button>
@@ -234,7 +234,7 @@ export default function AppLayout() {
           ))}
           <button onClick={() => setMobileMenuOpen((open) => !open)} aria-expanded={mobileMenuOpen} aria-label="Открыть все разделы" className={cn("flex h-16 min-w-0 flex-1 flex-col items-center justify-center transition-colors", mobileMenuOpen || isMoreRouteActive ? "text-primary" : "text-graphite/50 dark:text-zinc-400")}>
             <Menu className="mb-0.5 h-5 w-5" />
-            <span className="text-[9px] font-semibold">Ещё</span>
+            <span className="text-[9px] font-semibold">{t('navMore')}</span>
           </button>
         </nav>
       </div>
