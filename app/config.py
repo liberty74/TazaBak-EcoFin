@@ -214,6 +214,13 @@ class Settings:
             raise ValueError("MAX_IMAGE_PIXELS must be positive")
         if not self.dispatcher_api_key.strip():
             raise ValueError("DISPATCHER_API_KEY must not be empty")
+        # Значение сверяется со списком, потому что от него зависит запрет
+        # демо-ключа. Опечатка вроде «prodution» иначе прошла бы молча и сняла
+        # защиту ровно там, где она нужна больше всего.
+        if self.app_env not in {"development", "demo", "production"}:
+            raise ValueError(
+                "APP_ENV must be one of: development, demo, production"
+            )
         if (
             self.app_env == "production"
             and self.dispatcher_api_key in {"123", "tazabak-local-dispatcher-key"}
