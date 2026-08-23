@@ -40,6 +40,20 @@ router = APIRouter(
 )
 
 
+def _measured_temperature(telemetry: Telemetry | None) -> float | None:
+    """Вернуть температуру, только если её действительно измерили.
+
+    В таблице у замера без DS18B20 лежит опорное значение — оно нужно
+    арифметике дельты, но показанием не является. Наружу такой замер уходит
+    как отсутствие температуры: прочерк на экране честнее, чем ровные 25 °C,
+    по которым диспетчер решит, что в баке всё спокойно.
+    """
+
+    if telemetry is None or not telemetry.temp_sensor_ok:
+        return None
+    return telemetry.temp_in_c
+
+
 @router.get("/devices/status", response_model=list[DeviceTelemetryStatus])
 def list_device_statuses(db: Session = Depends(get_db)) -> list[DeviceTelemetryStatus]:
     """Return physical lid state, latest DS18B20 readings and camera setup."""
@@ -66,9 +80,16 @@ def list_device_statuses(db: Session = Depends(get_db)) -> list[DeviceTelemetryS
                 has_hardware=device.has_hardware,
                 lid_status=device.lid_status,
                 last_seen_at=device.last_seen_at,
-                temperature_in_c=telemetry.temp_in_c if telemetry else None,
+                # Замер без DS18B20 отдаётся как отсутствие температуры, а не
+                # как опорное значение из базы: на экране должен стоять
+                # прочерк, иначе диспетчер прочитает заглушку как показание.
+                temperature_in_c=_measured_temperature(telemetry),
                 temperature_out_c=telemetry.temp_out_c if telemetry else None,
-                temperature_delta_c=telemetry.temperature_delta_c if telemetry else None,
+                temperature_delta_c=(
+                    telemetry.temperature_delta_c
+                    if telemetry and telemetry.temp_sensor_ok
+                    else None
+                ),
                 measured_at=telemetry.measured_at if telemetry else None,
                 camera_stream_url=(
                     f"/api/cameras/{device.id}/stream"
@@ -108,9 +129,13 @@ def set_camera_stream(
         device_id=device.id,
         lid_status=device.lid_status,
         last_seen_at=device.last_seen_at,
-        temperature_in_c=telemetry.temp_in_c if telemetry else None,
+        temperature_in_c=_measured_temperature(telemetry),
         temperature_out_c=telemetry.temp_out_c if telemetry else None,
-        temperature_delta_c=telemetry.temperature_delta_c if telemetry else None,
+        temperature_delta_c=(
+            telemetry.temperature_delta_c
+            if telemetry and telemetry.temp_sensor_ok
+            else None
+        ),
         measured_at=telemetry.measured_at if telemetry else None,
         camera_stream_url=f"/api/cameras/{device.id}/stream",
     )

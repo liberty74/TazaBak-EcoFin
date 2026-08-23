@@ -11,6 +11,18 @@ import { linkState } from '../../lib/deviceLink';
 
 const lidIsClosed = (status: string) => status.startsWith('CLOSE') || status === 'CLOSED';
 
+// Пустая температура значит одно из двух, и разница важна: либо плата вообще
+// ничего не присылала, либо замеры идут, но DS18B20 не подключён. В первом
+// случае чинят связь, во втором — проводку. Общее «Нет данных» отправляло бы
+// искать не там.
+const temperatureLabel = (
+  temperature: number | null | undefined,
+  measuredAt: string | null | undefined,
+) => {
+  if (temperature != null) return `${temperature.toFixed(1)} °C`;
+  return measuredAt == null ? 'Нет данных' : 'Датчик не подключён';
+};
+
 const temperatureStyle = (temperature: number | null | undefined) => {
   if (temperature == null) return 'text-foreground/45';
   if (temperature > 50) return 'text-critical animate-pulse';
@@ -144,7 +156,7 @@ export default function DevicesPage() {
               <p className="mt-3 flex gap-2 text-xs text-foreground/60"><MapPin className="h-4 w-4 shrink-0" />{device.address}</p>
 
               <div className="mt-5 grid grid-cols-2 gap-3">
-                <Metric icon={<Thermometer className="h-4 w-4" />} label="DS18B20" value={temperature == null ? 'Нет данных' : `${temperature.toFixed(1)} °C`} valueClass={temperatureStyle(temperature)} />
+                <Metric icon={<Thermometer className="h-4 w-4" />} label="DS18B20" value={temperatureLabel(temperature, status?.measured_at)} valueClass={temperatureStyle(temperature)} />
                 <Metric icon={isClosed ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />} label="Заслонка" value={isClosed ? 'Заблокирована' : 'Доступна'} valueClass={isClosed ? 'text-critical' : 'text-primary'} />
               </div>
               {temperature != null && temperature > 50 && <p className="mt-3 flex items-center gap-1.5 rounded-xl bg-critical/10 p-2 text-xs font-bold text-critical"><Flame className="h-4 w-4 animate-pulse" />Пожарный порог &gt; 50°C: заслонка закрывается автоматически</p>}
@@ -205,7 +217,7 @@ function DeviceDetails({ device, status, cameraInput, cameraBroken, cameraSaving
       {analysis && analysis.detected_objects.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{analysis.detected_objects.map((item, index) => <span key={`${item.label}-${index}`} className="rounded-full bg-background px-2.5 py-1 text-xs font-semibold">{item.label} {(item.confidence * 100).toFixed(0)}%</span>)}</div>}
       {analysis?.alert_id && <p className="mt-3 text-xs font-bold text-critical">Создан или обновлён алерт ILLEGAL_DUMP #{analysis.alert_id}</p>}
     </div>
-    <div className="mt-5 grid gap-3 sm:grid-cols-3"><Metric icon={<Thermometer className="h-4 w-4" />} label="DS18B20 внутри" value={status?.temperature_in_c == null ? 'Нет данных' : `${status.temperature_in_c.toFixed(1)} °C`} valueClass={temperatureStyle(status?.temperature_in_c)} /><Metric icon={<Flame className="h-4 w-4" />} label="Порог пожара" value="> 50 °C" valueClass="text-critical" /><Metric icon={lidIsClosed(status?.lid_status ?? 'OPEN') ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />} label="Замок SG90" value={status?.lid_status ?? 'Нет данных'} valueClass={lidIsClosed(status?.lid_status ?? 'OPEN') ? 'text-critical' : 'text-primary'} /></div>
+    <div className="mt-5 grid gap-3 sm:grid-cols-3"><Metric icon={<Thermometer className="h-4 w-4" />} label="DS18B20 внутри" value={temperatureLabel(status?.temperature_in_c, status?.measured_at)} valueClass={temperatureStyle(status?.temperature_in_c)} /><Metric icon={<Flame className="h-4 w-4" />} label="Порог пожара" value="> 50 °C" valueClass="text-critical" /><Metric icon={lidIsClosed(status?.lid_status ?? 'OPEN') ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />} label="Замок SG90" value={status?.lid_status ?? 'Нет данных'} valueClass={lidIsClosed(status?.lid_status ?? 'OPEN') ? 'text-critical' : 'text-primary'} /></div>
     <div className="mt-5 rounded-2xl border border-border p-4"><label className="text-sm font-bold">MJPEG URL камеры</label><div className="mt-2 flex flex-col gap-2 sm:flex-row"><input value={cameraInput} onChange={(event) => onCameraInput(event.target.value)} placeholder="http://192.168.1.50:81/stream" className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30" /><button onClick={onSaveCamera} disabled={!cameraInput.trim() || cameraSaving} className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{cameraSaving ? 'Сохраняем…' : 'Сохранить'}</button></div></div>
   </section></div>;
 }
