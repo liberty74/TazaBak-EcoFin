@@ -191,6 +191,12 @@ void sendTelemetry() {
   HTTPClient http;
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
+  // Пока идёт POST, webSocket.loop() не вызывается, и плата глуха к командам.
+  // С таймаутом по умолчанию недоступный backend делал бы её глухой на пять
+  // секунд из каждых пятнадцати. Две секунды хватает замеру в локальной сети
+  // и вчетверо сокращают эту слепую зону.
+  http.setConnectTimeout(2000);
+  http.setTimeout(2000);
   const int httpCode = http.POST(requestBody);
   const String response = http.getString();
   http.end();
