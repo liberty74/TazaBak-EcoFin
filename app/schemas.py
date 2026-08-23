@@ -17,7 +17,11 @@ class TelemetryIn(BaseModel):
 
     device_id: str = Field(pattern=DEVICE_ID_PATTERN)
     distance: float = Field(ge=0, le=400, allow_inf_nan=False)
-    temp_in: float = Field(ge=-60, le=250, allow_inf_nan=False)
+    # null означает «датчик не подключён», а не «ноль градусов». Плата с
+    # оторванным DS18B20 продолжает слать уровень заполнения, и площадка
+    # остаётся видимой на карте — без температуры отключается только пожарная
+    # блокировка.
+    temp_in: float | None = Field(default=None, ge=-60, le=250, allow_inf_nan=False)
     temp_out: float = Field(ge=-60, le=100, allow_inf_nan=False)
     measured_at: datetime | None = None
 
@@ -40,6 +44,7 @@ class TelemetryResponse(BaseModel):
     fire_score: float
     fire_streak: int
     fire_risk: bool
+    temp_sensor_ok: bool = True
     action_triggered: Literal["CLOSE_LID"] | None = None
     command_sent: bool = False
     received_at: datetime

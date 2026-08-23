@@ -100,6 +100,9 @@ def apply_compatibility_migrations() -> None:
         ("cost_profiles", "sponsor_kzt_per_active_resident", "FLOAT", "150.0"),
         ("devices", "camera_stream_url", "VARCHAR(512)", None),
         ("devices", "has_hardware", "BOOLEAN", "FALSE"),
+        # Замеры, сделанные до появления флага, действительно приходили с
+        # подключённым DS18B20 — иначе прошивка их просто не отправляла.
+        ("telemetry", "temp_sensor_ok", "BOOLEAN", "TRUE"),
         ("vision_frames", "detections", "JSON", "'[]'"),
         # Анализы до CLIP остаются с пустым объектом: их решала старая
         # COCO-эвристика, и выдавать их за результат CLIP нельзя.

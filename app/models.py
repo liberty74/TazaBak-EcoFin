@@ -129,6 +129,12 @@ class Telemetry(Base):
     distance_cm: Mapped[float] = mapped_column(Float, nullable=False)
     temp_in_c: Mapped[float] = mapped_column(Float, nullable=False)
     temp_out_c: Mapped[float] = mapped_column(Float, nullable=False)
+    # Признак, что температуру действительно измерили. Плата без DS18B20
+    # присылает temp_in = null, и тогда в temp_in_c лежит опорное значение —
+    # число хранится только чтобы не ломать арифметику дельты. Читать его как
+    # температуру бака нельзя, и этот флаг — единственный способ отличить
+    # измерение от заглушки.
+    temp_sensor_ok: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     temperature_delta_c: Mapped[float] = mapped_column(Float, nullable=False)
     delta_rate_c_per_sec: Mapped[float] = mapped_column(Float, nullable=False)
     sampling_interval_seconds: Mapped[float | None] = mapped_column(Float)

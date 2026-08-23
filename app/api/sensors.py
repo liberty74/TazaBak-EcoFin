@@ -90,8 +90,10 @@ async def ingest_telemetry(
             fire_score=round(telemetry.fire_score, 4),
             fire_streak=telemetry.fire_streak,
             fire_risk=(
-                telemetry.temp_in_c > settings.fire_temperature_threshold_c
+                telemetry.temp_sensor_ok
+                and telemetry.temp_in_c > settings.fire_temperature_threshold_c
             ),
+            temp_sensor_ok=telemetry.temp_sensor_ok,
             action_triggered="CLOSE_LID" if result.should_close_lid else None,
             command_sent=command_sent,
             received_at=telemetry.received_at,

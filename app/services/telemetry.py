@@ -128,7 +128,14 @@ def process_telemetry(db: Session, payload: TelemetryIn) -> TelemetryResult:
             + (1.0 - settings.ema_alpha) * previous.fill_ema_percent
         )
 
-    temperature_delta = payload.temp_in - payload.temp_out
+    # Плата без DS18B20 присылает temp_in = null. Замер уровня при этом
+    # полноценный, поэтому он сохраняется как обычно, а в столбец температуры
+    # ложится опорное значение: дельта выходит нулевой, и арифметика ниже
+    # работает без ветвлений на каждой строке. Настоящим измерением это число
+    # не считается — за это отвечает temp_sensor_ok.
+    temp_sensor_ok = payload.temp_in is not None
+    temp_in = payload.temp_in if temp_sensor_ok else payload.temp_out
+    temperature_delta = temp_in - payload.temp_out
     sampling_interval: float | None = None
     delta_rate = 0.0
     if previous is not None:
@@ -146,11 +153,17 @@ def process_telemetry(db: Session, payload: TelemetryIn) -> TelemetryResult:
     # The prototype has one DS18B20 inside the bin. Fire protection is
     # deliberately based on its absolute value, not on a calculated delta.
     # A reading of exactly 50 C is normal; any value above 50 C is a fire risk.
+    #
+    # Без датчика блокировка не срабатывает вообще. Молчание неподключённого
+    # DS18B20 не значит, что в баке холодно, но и повода закрывать заслонку
+    # оно не даёт: решение принимается только по настоящему измерению.
     is_over_temperature = (
-        payload.temp_in > settings.fire_temperature_threshold_c
+        temp_sensor_ok
+        and temp_in > settings.fire_temperature_threshold_c
     )
     was_over_temperature = (
         previous is not None
+        and previous.temp_sensor_ok
         and previous.temp_in_c > settings.fire_temperature_threshold_c
     )
     fire_streak = (
@@ -177,8 +190,9 @@ def process_telemetry(db: Session, payload: TelemetryIn) -> TelemetryResult:
     telemetry = Telemetry(
         device_id=payload.device_id,
         distance_cm=payload.distance,
-        temp_in_c=payload.temp_in,
+        temp_in_c=temp_in,
         temp_out_c=payload.temp_out,
+        temp_sensor_ok=temp_sensor_ok,
         temperature_delta_c=temperature_delta,
         delta_rate_c_per_sec=delta_rate,
         sampling_interval_seconds=sampling_interval,
@@ -202,7 +216,7 @@ def process_telemetry(db: Session, payload: TelemetryIn) -> TelemetryResult:
                 "DS18B20 temperature exceeded the municipal fire threshold"
             ),
             details={
-                "temperature_in_c": round(payload.temp_in, 4),
+                "temperature_in_c": round(temp_in, 4),
                 "fire_temperature_threshold_c": settings.fire_temperature_threshold_c,
                 "fire_score": round(fire_score, 4),
                 "temperature_delta_c": round(temperature_delta, 4),
