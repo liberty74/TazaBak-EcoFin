@@ -5,14 +5,42 @@ from __future__ import annotations
 from datetime import date, datetime, time, timezone
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_serializer,
+    field_validator,
+)
+
+
+class ApiModel(BaseModel):
+    """Базовая модель ответа: время всегда уезжает с пометкой UTC.
+
+    В базе даты лежат наивными и означают UTC. Без пометки такая строка
+    выглядит как «2026-08-23T15:07:19», и браузер по спецификации разбирает
+    её как местное время: плата, приславшая замер секунду назад, показывалась
+    молчащей ровно на величину часового пояса — в Казахстане на пять часов.
+    Смещение попадало и в тревоги, и в историю начислений.
+
+    Чинить это на стороне интерфейса пришлось бы в каждом месте разбора даты,
+    и следующее такое место снова забыли бы. Здесь же исправление одно на все
+    ответы API.
+    """
+
+    @field_serializer("*", when_used="json")
+    def _mark_naive_datetimes_as_utc(self, value: Any) -> Any:
+        if isinstance(value, datetime) and value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
 
 
 DEVICE_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$"
 UserRole = Literal["user", "volunteer", "dispatcher"]
 
 
-class TelemetryIn(BaseModel):
+class TelemetryIn(ApiModel):
     model_config = ConfigDict(extra="forbid")
 
     device_id: str = Field(pattern=DEVICE_ID_PATTERN)
@@ -35,7 +63,7 @@ class TelemetryIn(BaseModel):
         return value
 
 
-class TelemetryResponse(BaseModel):
+class TelemetryResponse(ApiModel):
     status: Literal["accepted"] = "accepted"
     telemetry_id: int
     device_id: str
@@ -50,13 +78,13 @@ class TelemetryResponse(BaseModel):
     received_at: datetime
 
 
-class DetectedObjectResponse(BaseModel):
+class DetectedObjectResponse(ApiModel):
     label: str
     confidence: float = Field(ge=0, le=1)
     bounding_box: list[float] = Field(min_length=4, max_length=4)
 
 
-class VisionResponse(BaseModel):
+class VisionResponse(ApiModel):
     status: Literal["processed"] = "processed"
     frame_id: int
     device_id: str
@@ -70,7 +98,7 @@ class VisionResponse(BaseModel):
     image_url: str
 
 
-class BreadClassificationResponse(BaseModel):
+class BreadClassificationResponse(ApiModel):
     """What the photo was compared against, and how strongly it matched.
 
     The probabilities are part of the answer on purpose: a resident whose
@@ -86,7 +114,7 @@ class BreadClassificationResponse(BaseModel):
     engine: Literal["clip-zero-shot", "gemini-vision"] = "clip-zero-shot"
 
 
-class BioResponse(BaseModel):
+class BioResponse(ApiModel):
     analysis_id: int
     status: Literal["approve", "reject", "invalid"]
     qr_code: str
@@ -103,7 +131,7 @@ class BioResponse(BaseModel):
     ) = None
 
 
-class DispatchAlert(BaseModel):
+class DispatchAlert(ApiModel):
     id: int
     device_id: str | None
     type: str
@@ -114,7 +142,7 @@ class DispatchAlert(BaseModel):
     created_at: datetime
 
 
-class DispatchSummary(BaseModel):
+class DispatchSummary(ApiModel):
     generated_at: datetime
     total_unresolved: int
     counts_by_type: dict[str, int]
@@ -122,19 +150,19 @@ class DispatchSummary(BaseModel):
     tasks: list[DispatchAlert]
 
 
-class DispatchBriefing(BaseModel):
+class DispatchBriefing(ApiModel):
     generated_at: datetime
     total_tasks: int
     text: str
 
 
-class ResolveAlertResponse(BaseModel):
+class ResolveAlertResponse(ApiModel):
     id: int
     status: Literal["resolved"] = "resolved"
     resolved_at: datetime
 
 
-class UserProfile(BaseModel):
+class UserProfile(ApiModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -144,7 +172,7 @@ class UserProfile(BaseModel):
     status_tier: str
 
 
-class RegisterRequest(BaseModel):
+class RegisterRequest(ApiModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     username: str = Field(min_length=3, max_length=64, pattern=r"^[\w.-]+$")
@@ -152,14 +180,14 @@ class RegisterRequest(BaseModel):
     role: Literal["user", "volunteer"] = "user"
 
 
-class LoginRequest(BaseModel):
+class LoginRequest(ApiModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=128)
 
 
-class PointTransactionResponse(BaseModel):
+class PointTransactionResponse(ApiModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -171,7 +199,7 @@ class PointTransactionResponse(BaseModel):
     created_at: datetime
 
 
-class EcoNFTResponse(BaseModel):
+class EcoNFTResponse(ApiModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -182,13 +210,13 @@ class EcoNFTResponse(BaseModel):
     creation_date: datetime
 
 
-class UserDashboardResponse(BaseModel):
+class UserDashboardResponse(ApiModel):
     profile: UserProfile
     transactions: list[PointTransactionResponse]
     nfts: list[EcoNFTResponse]
 
 
-class ContainerResponse(BaseModel):
+class ContainerResponse(ApiModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -202,7 +230,7 @@ class ContainerResponse(BaseModel):
     fill_percent: float
 
 
-class VolunteerTaskResponse(BaseModel):
+class VolunteerTaskResponse(ApiModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -214,13 +242,13 @@ class VolunteerTaskResponse(BaseModel):
     status: Literal["open", "completed"]
 
 
-class VolunteerRegisterRequest(BaseModel):
+class VolunteerRegisterRequest(ApiModel):
     model_config = ConfigDict(extra="forbid", coerce_numbers_to_str=True)
 
     user_id: str = Field(min_length=1, max_length=64)
 
 
-class VolunteerRegisterResponse(BaseModel):
+class VolunteerRegisterResponse(ApiModel):
     status: Literal["registered"] = "registered"
     user_task_id: int
     registration_id: int
@@ -230,14 +258,14 @@ class VolunteerRegisterResponse(BaseModel):
     points_balance: int
 
 
-class VolunteerCompleteRequest(BaseModel):
+class VolunteerCompleteRequest(ApiModel):
     model_config = ConfigDict(extra="forbid", coerce_numbers_to_str=True)
 
     user_id: str = Field(min_length=1, max_length=64)
     dispatcher_id: str = Field(min_length=1, max_length=64)
 
 
-class VolunteerCompleteResponse(BaseModel):
+class VolunteerCompleteResponse(ApiModel):
     status: Literal["completed"] = "completed"
     user_task_id: int
     task_id: int
@@ -247,7 +275,7 @@ class VolunteerCompleteResponse(BaseModel):
     completed_at: datetime
 
 
-class ShopItemResponse(BaseModel):
+class ShopItemResponse(ApiModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -258,7 +286,7 @@ class ShopItemResponse(BaseModel):
     is_active: bool
 
 
-class ShopBuyRequest(BaseModel):
+class ShopBuyRequest(ApiModel):
     model_config = ConfigDict(extra="forbid", coerce_numbers_to_str=True)
 
     user_id: str = Field(min_length=1, max_length=64)
@@ -266,7 +294,7 @@ class ShopBuyRequest(BaseModel):
     idempotency_key: str = Field(min_length=8, max_length=64)
 
 
-class ShopBuyResponse(BaseModel):
+class ShopBuyResponse(ApiModel):
     status: Literal["purchased"] = "purchased"
     purchase_id: int
     user_id: int
@@ -276,7 +304,7 @@ class ShopBuyResponse(BaseModel):
     points_balance: int
 
 
-class MintNFTRequest(BaseModel):
+class MintNFTRequest(ApiModel):
     model_config = ConfigDict(
         extra="forbid", str_strip_whitespace=True, coerce_numbers_to_str=True
     )
@@ -286,14 +314,14 @@ class MintNFTRequest(BaseModel):
     idempotency_key: str = Field(min_length=8, max_length=64)
 
 
-class MintNFTResponse(BaseModel):
+class MintNFTResponse(ApiModel):
     status: Literal["minted"] = "minted"
     price_points: int
     current_balance: int
     nft: EcoNFTResponse
 
 
-class DispatcherCommandRequest(BaseModel):
+class DispatcherCommandRequest(ApiModel):
     model_config = ConfigDict(extra="forbid", coerce_numbers_to_str=True)
 
     dispatcher_id: str = Field(min_length=1, max_length=64)
@@ -301,7 +329,7 @@ class DispatcherCommandRequest(BaseModel):
     idempotency_key: str | None = Field(default=None, min_length=8, max_length=64)
 
 
-class DeviceCommandResponse(BaseModel):
+class DeviceCommandResponse(ApiModel):
     id: int
     device_id: str
     action: Literal["OPEN_LID", "CLOSE_LID"]
@@ -311,7 +339,7 @@ class DeviceCommandResponse(BaseModel):
     created_at: datetime
 
 
-class DeviceTelemetryStatus(BaseModel):
+class DeviceTelemetryStatus(ApiModel):
     device_id: str
     # Есть ли на площадке плата. Экран управления показывает только такие:
     # у запланированного адреса нечего открывать и не на что смотреть.
@@ -325,7 +353,7 @@ class DeviceTelemetryStatus(BaseModel):
     camera_stream_url: str | None = None
 
 
-class CameraStreamUpdate(BaseModel):
+class CameraStreamUpdate(ApiModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     stream_url: str = Field(min_length=10, max_length=512)
@@ -343,7 +371,7 @@ class CameraStreamUpdate(BaseModel):
         return value
 
 
-class CameraAnalysisResponse(BaseModel):
+class CameraAnalysisResponse(ApiModel):
     status: Literal["processed"] = "processed"
     frame_id: int
     device_id: str
@@ -355,7 +383,7 @@ class CameraAnalysisResponse(BaseModel):
     created_at: datetime
 
 
-class ForumMessageCreate(BaseModel):
+class ForumMessageCreate(ApiModel):
     model_config = ConfigDict(
         extra="forbid", str_strip_whitespace=True, coerce_numbers_to_str=True
     )
@@ -364,7 +392,7 @@ class ForumMessageCreate(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
 
 
-class ForumMessageResponse(BaseModel):
+class ForumMessageResponse(ApiModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -373,7 +401,7 @@ class ForumMessageResponse(BaseModel):
     timestamp: datetime
 
 
-class EcoCostProfileResponse(BaseModel):
+class EcoCostProfileResponse(ApiModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -398,7 +426,7 @@ class EcoCostProfileResponse(BaseModel):
     updated_at: datetime
 
 
-class EcoCostProfileUpdate(BaseModel):
+class EcoCostProfileUpdate(ApiModel):
     """Every field is optional: a dispatcher tunes one parameter at a time."""
 
     model_config = ConfigDict(extra="forbid")
@@ -425,7 +453,7 @@ class EcoCostProfileUpdate(BaseModel):
     )
 
 
-class EcoTrips(BaseModel):
+class EcoTrips(ApiModel):
     baseline: float
     actual: int
     saved: float
@@ -433,19 +461,19 @@ class EcoTrips(BaseModel):
     average_fill_at_collection_percent: float | None = None
 
 
-class EcoResources(BaseModel):
+class EcoResources(ApiModel):
     km_saved: float
     liters_saved: float
     co2_kg_saved: float
 
 
-class EcoMoney(BaseModel):
+class EcoMoney(ApiModel):
     fuel_kzt: float
     crew_kzt: float
     total_kzt: float
 
 
-class EcoBread(BaseModel):
+class EcoBread(ApiModel):
     """Bread kept out of the bin.
 
     ``rescued_value_kzt`` is the cost of the product that reached a shelter
@@ -460,7 +488,7 @@ class EcoBread(BaseModel):
     rescued_value_kzt: float
 
 
-class EcoPayback(BaseModel):
+class EcoPayback(ApiModel):
     monthly_savings_kzt: float
     monthly_subscription_kzt: float
     net_monthly_kzt: float
@@ -468,7 +496,7 @@ class EcoPayback(BaseModel):
     payback_months: float | None = None
 
 
-class EcoWeeklyPoint(BaseModel):
+class EcoWeeklyPoint(ApiModel):
     week_start: date
     trips_saved: float
     kzt_saved: float
@@ -479,7 +507,7 @@ class EcoWeeklyPoint(BaseModel):
     is_partial: bool = False
 
 
-class EcoFormulaInputs(BaseModel):
+class EcoFormulaInputs(ApiModel):
     """Raw inputs behind the report, so any figure can be traced on stage."""
 
     days: float
@@ -496,7 +524,7 @@ class EcoFormulaInputs(BaseModel):
     kzt_per_saved_stop: float
 
 
-class SavingsReport(BaseModel):
+class SavingsReport(ApiModel):
     generated_at: datetime
     period_start: datetime
     period_end: datetime
@@ -513,7 +541,7 @@ class SavingsReport(BaseModel):
     formula: EcoFormulaInputs
 
 
-class RevenueStream(BaseModel):
+class RevenueStream(ApiModel):
     """One way the platform earns, with the arithmetic that produced it."""
 
     key: str
@@ -527,7 +555,7 @@ class RevenueStream(BaseModel):
     is_recurring: bool
 
 
-class RevenueScenario(BaseModel):
+class RevenueScenario(ApiModel):
     title: str
     containers: int
     streams: list[RevenueStream]
@@ -536,7 +564,7 @@ class RevenueScenario(BaseModel):
     annual_recurring_kzt: float
 
 
-class RevenueModel(BaseModel):
+class RevenueModel(ApiModel):
     generated_at: datetime
     period_start: datetime
     period_end: datetime
@@ -548,7 +576,7 @@ class RevenueModel(BaseModel):
     assumptions: list[str]
 
 
-class CollectionEventResponse(BaseModel):
+class CollectionEventResponse(ApiModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -560,7 +588,7 @@ class CollectionEventResponse(BaseModel):
     source: Literal["SENSOR", "DISPATCHER", "SEED"]
 
 
-class CollectionEventCreate(BaseModel):
+class CollectionEventCreate(ApiModel):
     model_config = ConfigDict(extra="forbid")
 
     device_id: str = Field(pattern=DEVICE_ID_PATTERN)
@@ -577,7 +605,7 @@ class CollectionEventCreate(BaseModel):
         return value
 
 
-class SavingsSnapshotResponse(BaseModel):
+class SavingsSnapshotResponse(ApiModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -597,7 +625,7 @@ class SavingsSnapshotResponse(BaseModel):
     created_at: datetime
 
 
-class WriteOffCreate(BaseModel):
+class WriteOffCreate(ApiModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     occurred_on: date
@@ -615,7 +643,7 @@ class WriteOffCreate(BaseModel):
         return value
 
 
-class WriteOffResponse(BaseModel):
+class WriteOffResponse(ApiModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -628,7 +656,7 @@ class WriteOffResponse(BaseModel):
     updated_at: datetime
 
 
-class ContainerForecast(BaseModel):
+class ContainerForecast(ApiModel):
     container_id: int
     device_id: str
     name: str
@@ -645,7 +673,7 @@ class ContainerForecast(BaseModel):
     reason: Literal["not_enough_measurements", "not_filling"] | None = None
 
 
-class RouteScenario(BaseModel):
+class RouteScenario(ApiModel):
     label: str
     stops: int
     distance_km: float
@@ -653,7 +681,7 @@ class RouteScenario(BaseModel):
     kzt: float
 
 
-class RouteLeg(BaseModel):
+class RouteLeg(ApiModel):
     position: int
     from_label: str
     to_label: str
@@ -661,7 +689,7 @@ class RouteLeg(BaseModel):
     distance_km: float
 
 
-class RoutePlan(BaseModel):
+class RoutePlan(ApiModel):
     generated_at: datetime
     horizon_hours: float
     baseline: RouteScenario
@@ -674,7 +702,7 @@ class RoutePlan(BaseModel):
     skipped: list[str]
 
 
-class ProductForecast(BaseModel):
+class ProductForecast(ApiModel):
     product: str
     expected_kg: float
     average_kg: float
@@ -683,14 +711,14 @@ class ProductForecast(BaseModel):
     basis: Literal["same_weekday", "all_days"]
 
 
-class WeekdayProfile(BaseModel):
+class WeekdayProfile(ApiModel):
     weekday: int = Field(ge=0, le=6)
     name: str
     average_kg: float
     samples: int
 
 
-class BusinessForecast(BaseModel):
+class BusinessForecast(ApiModel):
     profile_id: int
     org_name: str
     target_date: date
@@ -707,12 +735,12 @@ class BusinessForecast(BaseModel):
     rescued_value_kzt: float
 
 
-class EcoRecommendation(BaseModel):
+class EcoRecommendation(ApiModel):
     title: str = Field(min_length=1, max_length=160)
     detail: str = Field(min_length=1, max_length=600)
 
 
-class EcoRecommendations(BaseModel):
+class EcoRecommendations(ApiModel):
     """Advice for tomorrow, together with the numbers it was allowed to use.
 
     ``facts`` is not decoration: the recommendations are machine-checked
@@ -726,7 +754,7 @@ class EcoRecommendations(BaseModel):
     recommendations: list[EcoRecommendation]
 
 
-class AIChatRequest(BaseModel):
+class AIChatRequest(ApiModel):
     model_config = ConfigDict(
         extra="forbid", str_strip_whitespace=True, coerce_numbers_to_str=True
     )
@@ -735,7 +763,7 @@ class AIChatRequest(BaseModel):
     user_id: str | None = Field(default=None, min_length=1, max_length=64)
 
 
-class AIChatResponse(BaseModel):
+class AIChatResponse(ApiModel):
     response: str
     provider: Literal["google-gemini", "offline-fallback"]
     model: str | None = None
