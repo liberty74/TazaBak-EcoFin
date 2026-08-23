@@ -7,30 +7,10 @@ import { useAuth } from '../../store/AuthContext';
 import { handleApiError } from '../../api/errors';
 import { toast } from 'sonner';
 import { createRequestId } from '../../lib/utils';
+import { linkState } from '../../lib/deviceLink';
 
 const lidIsClosed = (status: string) => status.startsWith('CLOSE') || status === 'CLOSED';
 
-// Плата шлёт замер раз в 15 секунд. Молчание дольше трёх минут — это двенадцать
-// пропущенных подряд, и списать их на помехи уже нельзя: связь потеряна.
-// Порог намеренно щедрый — мигающая плашка на каждый одиночный сбой приучает
-// не обращать на неё внимания.
-const LINK_SILENCE_MS = 3 * 60 * 1000;
-
-/** Состояние связи с платой по свежести последнего замера. */
-function linkState(measuredAt: string | null | undefined): {
-  online: boolean;
-  label: string;
-} {
-  if (!measuredAt) return { online: false, label: 'замеров ещё не было' };
-  const silentMs = Date.now() - new Date(measuredAt).getTime();
-  if (silentMs < LINK_SILENCE_MS) return { online: true, label: 'на связи' };
-
-  const minutes = Math.round(silentMs / 60000);
-  if (minutes < 60) return { online: false, label: `молчит ${minutes} мин` };
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return { online: false, label: `молчит ${hours} ч` };
-  return { online: false, label: `молчит ${Math.round(hours / 24)} сут` };
-}
 const temperatureStyle = (temperature: number | null | undefined) => {
   if (temperature == null) return 'text-foreground/45';
   if (temperature > 50) return 'text-critical animate-pulse';
