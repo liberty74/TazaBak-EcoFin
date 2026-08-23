@@ -29,8 +29,8 @@
 
 // ---------- Change these values before uploading ----------
 // Fill these values locally before uploading the sketch. Do not commit real credentials.
-constexpr char WIFI_SSID[] = "YOUR_WIFI_SSID";
-constexpr char WIFI_PASSWORD[] = "YOUR_WIFI_PASSWORD";
+constexpr char WIFI_SSID[] = "KZTK-11482_2.4G";
+constexpr char WIFI_PASSWORD[] = "S6N4XPkd";
 constexpr char DEVICE_ID[] = "municipal-prototype-001";
 
 // Куда отправлять — единственный переключатель во всём скетче.
@@ -50,7 +50,11 @@ constexpr char BACKEND_HOST[] = "tazabak-api.onrender.com";
 constexpr uint16_t BACKEND_PORT = 443;
 #else
 constexpr bool USE_TLS = false;
-constexpr char BACKEND_HOST[] = "192.168.1.100";  // LAN IP ноутбука с FastAPI
+// IP ноутбука в той же Wi-Fi-сети. Его печатает scripts\start-local.ps1 при
+// запуске: адрес выдаётся роутером и меняется после переподключения, поэтому
+// сверять его нужно перед каждым показом, а не помнить. Плата с чужим
+// адресом ведёт себя как исправная — Wi-Fi подключён, — но молчит.
+constexpr char BACKEND_HOST[] = "192.168.10.5";
 constexpr uint16_t BACKEND_PORT = 8000;
 #endif
 // ----------------------------------------------------------------
@@ -195,19 +199,30 @@ void sendTelemetry() {
   const float tempIn = temperatureSensors.getTempCByIndex(0);
   const float distance = readDistanceCm();
 
-  if (tempIn == DEVICE_DISCONNECTED_C) {
-    Serial.println("Telemetry skipped: DS18B20 is disconnected");
-    return;
-  }
   if (distance <= 0.0F || distance > 400.0F) {
     Serial.printf("Telemetry skipped: invalid HC-SR04 distance %.2f cm\n", distance);
     return;
   }
 
+  // Отсутствие DS18B20 больше не отменяет отправку целиком.
+  //
+  // Раньше замер расстояния выбрасывался вместе с температурой, и площадка с
+  // одним неподключённым датчиком выглядела на экране полностью мёртвой, хотя
+  // эхолот работал. Уровень заполнения — основная величина проекта, а
+  // температура нужна только пожарной блокировке. Поэтому температура уходит
+  // как null: сервер сохранит замер, но не станет решать по нему, горит ли
+  // бак. Отправить вместо неё комнатные 25 °C было бы хуже: в базе появилось
+  // бы измерение, которого никто не делал.
+  const bool temperatureSensorOk = (tempIn != DEVICE_DISCONNECTED_C);
+
   StaticJsonDocument<256> telemetry;
   telemetry["device_id"] = DEVICE_ID;
   telemetry["distance"] = distance;
-  telemetry["temp_in"] = tempIn;
+  if (temperatureSensorOk) {
+    telemetry["temp_in"] = tempIn;
+  } else {
+    telemetry["temp_in"] = nullptr;
+  }
   telemetry["temp_out"] = TEMP_OUT_REFERENCE_C;
 
   String requestBody;
@@ -252,11 +267,19 @@ void sendTelemetry() {
   const String response = http.getString();
   http.end();
 
-  Serial.printf(
-      "Telemetry: distance=%.2f cm, DS18B20=%.2f C, HTTP=%d\n",
-      distance,
-      tempIn,
-      httpCode);
+  if (temperatureSensorOk) {
+    Serial.printf(
+        "Telemetry: distance=%.2f cm, DS18B20=%.2f C, HTTP=%d\n",
+        distance,
+        tempIn,
+        httpCode);
+  } else {
+    Serial.printf(
+        "Telemetry: distance=%.2f cm, DS18B20 disconnected "
+        "(fire protection off), HTTP=%d\n",
+        distance,
+        httpCode);
+  }
   if (response.length() > 0) {
     Serial.println(response);
   }
