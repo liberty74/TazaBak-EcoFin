@@ -33,6 +33,17 @@ constexpr char WIFI_PASSWORD[] = "YOUR_WIFI_PASSWORD";
 constexpr char BACKEND_HOST[] = "192.168.1.100";  // LAN IP of the laptop running FastAPI
 constexpr char DEVICE_ID[] = "municipal-prototype-001";
 // ----------------------------------------------------------------
+//
+// The board talks to the stand on the same Wi-Fi over plain HTTP. That is
+// deliberate: at the defence the backend runs on the laptop next to the bin,
+// and a local link needs no certificate store on a device with 320 KB of RAM.
+//
+// The public showcase is a different address and speaks HTTPS on 443. Pointing
+// this sketch at it means more than editing the host: HTTPClient becomes
+// WiFiClientSecure with a root certificate, and WebSocketsClient becomes
+// beginSSL(). Until that is done, the cloud instance is a showcase for people,
+// not an endpoint for hardware — and saying otherwise on stage would be a lie
+// the first question would expose.
 
 constexpr uint16_t BACKEND_PORT = 8000;
 constexpr uint8_t TEMP_PIN = 4;
