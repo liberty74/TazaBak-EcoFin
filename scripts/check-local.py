@@ -189,6 +189,40 @@ def _() -> str:
     return f"{len(page.content)} байт с {UI}"
 
 
+@check("брандмауэр пропускает плату")
+def _() -> str:
+    """Проверяется правило, а не соединение.
+
+    Постучаться со стенда на собственный LAN-адрес нельзя: Windows заворачивает
+    такой трафик внутри себя, не показывая его брандмауэру, и проверка всегда
+    проходила бы успешно. Поэтому спрашивается сам факт наличия разрешающего
+    правила — именно его отсутствие оставляет плату без ответа, пока браузер на
+    ноутбуке работает как ни в чём не бывало.
+    """
+
+    import subprocess
+
+    query = (
+        "Get-NetFirewallRule -Enabled True -Direction Inbound -Action Allow "
+        "-ErrorAction SilentlyContinue | Get-NetFirewallPortFilter "
+        "-ErrorAction SilentlyContinue | "
+        "Where-Object { $_.LocalPort -contains '8000' } | Measure-Object | "
+        "Select-Object -ExpandProperty Count"
+    )
+    result = subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-Command", query],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if result.stdout.strip() in {"", "0"}:
+        raise RuntimeError(
+            "нет разрешающего правила на порт 8000 — ESP32 и телефон не достучатся; "
+            "выполните от администратора команду, которую печатает start-local.ps1"
+        )
+    return "порт 8000 разрешён для входящих"
+
+
 print()
 if failures:
     print(f"  Не прошло проверок: {len(failures)}")

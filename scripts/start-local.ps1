@@ -51,6 +51,33 @@ if (-not (Test-Path (Join-Path $root 'frontend\node_modules'))) {
     Pop-Location
 }
 
+# Слушать 0.0.0.0 мало: входящие соединения по умолчанию отбивает брандмауэр
+# Windows, и плата получает молчание вместо ответа. Диагностика при этом
+# обманчива — с самого ноутбука curl проходит, потому что петлевой трафик
+# правилами не проверяется.
+#
+# Правило ограничено локальной подсетью: домашний Wi-Fi Windows часто считает
+# публичной сетью, и открывать в ней порт наружу целиком незачем.
+$ruleName = 'TazaBAK local stand'
+if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
+    $isAdmin = ([Security.Principal.WindowsPrincipal] `
+        [Security.Principal.WindowsIdentity]::GetCurrent()
+    ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+    if ($isAdmin) {
+        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow `
+            -Protocol TCP -LocalPort 8000, 5173 -Profile Any -RemoteAddress LocalSubnet |
+            Out-Null
+        Write-Host '  Открыл порты 8000 и 5173 для локальной сети.' -ForegroundColor Green
+    } else {
+        Write-Host '  Брандмауэр закроет плату от стенда.' -ForegroundColor Yellow
+        Write-Host '  Один раз выполните в PowerShell от администратора:'
+        Write-Host "    New-NetFirewallRule -DisplayName '$ruleName' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8000,5173 -Profile Any -RemoteAddress LocalSubnet" -ForegroundColor Cyan
+        Write-Host '  Без этого браузер на ноутбуке работает, а ESP32 и телефон — нет.'
+        Write-Host ''
+    }
+}
+
 Write-Host '  Запускаю backend на порту 8000...' -ForegroundColor Cyan
 Start-Process -FilePath $venvPython `
     -ArgumentList '-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000' `

@@ -11,6 +11,10 @@ __pycache__/
 tazabak.db
 tazabak.db-shm
 tazabak.db-wal
+# База, которую создаёт прогон тестов на SQLite.
+test_local.db
+test_local.db-shm
+test_local.db-wal
 static/vision/*
 static/bio/*
 !static/vision/.gitkeep
