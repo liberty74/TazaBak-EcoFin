@@ -25,27 +25,35 @@
 #include <OneWire.h>
 #include <WebSocketsClient.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 
-// ---------- Change these four values before uploading ----------
+// ---------- Change these values before uploading ----------
 // Fill these values locally before uploading the sketch. Do not commit real credentials.
 constexpr char WIFI_SSID[] = "YOUR_WIFI_SSID";
 constexpr char WIFI_PASSWORD[] = "YOUR_WIFI_PASSWORD";
-constexpr char BACKEND_HOST[] = "192.168.1.100";  // LAN IP of the laptop running FastAPI
 constexpr char DEVICE_ID[] = "municipal-prototype-001";
-// ----------------------------------------------------------------
-//
-// The board talks to the stand on the same Wi-Fi over plain HTTP. That is
-// deliberate: at the defence the backend runs on the laptop next to the bin,
-// and a local link needs no certificate store on a device with 320 KB of RAM.
-//
-// The public showcase is a different address and speaks HTTPS on 443. Pointing
-// this sketch at it means more than editing the host: HTTPClient becomes
-// WiFiClientSecure with a root certificate, and WebSocketsClient becomes
-// beginSSL(). Until that is done, the cloud instance is a showcase for people,
-// not an endpoint for hardware — and saying otherwise on stage would be a lie
-// the first question would expose.
 
+// Куда отправлять — единственный переключатель во всём скетче.
+//
+//   0 — ноутбук в той же Wi-Fi сети, обычный HTTP на 8000. Так идёт защита:
+//       backend стоит в двух метрах, задержка минимальная, интернет не нужен.
+//   1 — развёрнутый сервис, HTTPS и WSS на 443. Так бак работает без
+//       ноутбука вообще, только с Wi-Fi.
+//
+// Адрес и порт подставляются сами: указать HTTP на 443 или TLS на 8000
+// теперь невозможно.
+#define TAZABAK_CLOUD 0
+
+#if TAZABAK_CLOUD
+constexpr bool USE_TLS = true;
+constexpr char BACKEND_HOST[] = "tazabak-api.onrender.com";
+constexpr uint16_t BACKEND_PORT = 443;
+#else
+constexpr bool USE_TLS = false;
+constexpr char BACKEND_HOST[] = "192.168.1.100";  // LAN IP ноутбука с FastAPI
 constexpr uint16_t BACKEND_PORT = 8000;
+#endif
+// ----------------------------------------------------------------
 constexpr uint8_t TEMP_PIN = 4;
 constexpr uint8_t TRIG_PIN = 5;
 constexpr uint8_t ECHO_PIN = 18;
@@ -164,6 +172,13 @@ void connectWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
     Serial.print("Wi-Fi connected. ESP32 IP: ");
     Serial.println(WiFi.localIP());
+    if (USE_TLS) {
+      // У ESP32 нет часов на батарейке: после включения он считает, что
+      // сейчас 1970 год. Проверка сертификата в такой дате не проходит
+      // никогда, поэтому время берём из сети. Сейчас проверка выключена, но
+      // включить её без этой строки было бы невозможно.
+      configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+    }
   } else {
     Serial.println("Wi-Fi not connected; will retry.");
   }
@@ -198,16 +213,41 @@ void sendTelemetry() {
   String requestBody;
   serializeJson(telemetry, requestBody);
 
-  const String url = String("http://") + BACKEND_HOST + ":" + BACKEND_PORT + "/api/sensors/ingest";
+  const String url = String(USE_TLS ? "https://" : "http://") + BACKEND_HOST +
+                     ":" + BACKEND_PORT + "/api/sensors/ingest";
+
   HTTPClient http;
-  http.begin(url);
+  // static, а не локальная переменная: TLS-контекст выделяет десятки килобайт
+  // на каждое соединение, и создавать его заново каждые пятнадцать секунд
+  // означает фрагментировать кучу до отказа за несколько суток непрерывной
+  // работы. Плата в баке должна жить месяцами.
+  static WiFiClientSecure secureClient;
+  if (USE_TLS) {
+    // Соединение шифруется, но подлинность сервера не проверяется.
+    //
+    // Это осознанная уступка, а не недосмотр. Проверка требует хранить
+    // корневой сертификат в прошивке, а сертификаты меняются: плата,
+    // закопанная в бак, замолчала бы в день ротации, и понять почему было бы
+    // некому. Для уровня заполнения и температуры цена перехвата невелика.
+    //
+    // Для эксплуатации: secureClient.setCACert(корневой_сертификат) плюс
+    // синхронизация часов ниже — без верного времени проверка не проходит.
+    secureClient.setInsecure();
+    http.begin(secureClient, url);
+  } else {
+    http.begin(url);
+  }
   http.addHeader("Content-Type", "application/json");
+
   // Пока идёт POST, webSocket.loop() не вызывается, и плата глуха к командам.
-  // С таймаутом по умолчанию недоступный backend делал бы её глухой на пять
-  // секунд из каждых пятнадцати. Две секунды хватает замеру в локальной сети
-  // и вчетверо сокращают эту слепую зону.
-  http.setConnectTimeout(2000);
-  http.setTimeout(2000);
+  // В локальной сети двух секунд хватает с запасом. Через интернет столько
+  // занимает одно рукопожатие TLS, а бесплатный инстанс после простоя ещё и
+  // просыпается около минуты — поэтому в облачном режиме ждём дольше, платя
+  // за это более длинной слепой зоной. Неудачная отправка не страшна:
+  // следующая уйдёт через пятнадцать секунд.
+  const uint16_t timeoutMs = USE_TLS ? 12000 : 2000;
+  http.setConnectTimeout(timeoutMs);
+  http.setTimeout(timeoutMs);
   const int httpCode = http.POST(requestBody);
   const String response = http.getString();
   http.end();
@@ -241,7 +281,14 @@ void setup() {
   setLid(false);
 
   connectWiFi();
-  webSocket.begin(BACKEND_HOST, BACKEND_PORT, String("/ws/device/") + DEVICE_ID);
+  const String wsPath = String("/ws/device/") + DEVICE_ID;
+  if (USE_TLS) {
+    // WSS к тому же адресу. Проверка сертификата не включается по той же
+    // причине, что и у телеметрии: см. комментарий в sendTelemetry.
+    webSocket.beginSSL(BACKEND_HOST, BACKEND_PORT, wsPath);
+  } else {
+    webSocket.begin(BACKEND_HOST, BACKEND_PORT, wsPath);
+  }
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000UL);
   // Без heartbeat оборванное соединение не обнаруживается: плата продолжает
