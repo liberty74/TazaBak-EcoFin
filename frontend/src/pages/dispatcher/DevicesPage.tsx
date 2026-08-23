@@ -9,6 +9,28 @@ import { toast } from 'sonner';
 import { createRequestId } from '../../lib/utils';
 
 const lidIsClosed = (status: string) => status.startsWith('CLOSE') || status === 'CLOSED';
+
+// Плата шлёт замер раз в 15 секунд. Молчание дольше трёх минут — это двенадцать
+// пропущенных подряд, и списать их на помехи уже нельзя: связь потеряна.
+// Порог намеренно щедрый — мигающая плашка на каждый одиночный сбой приучает
+// не обращать на неё внимания.
+const LINK_SILENCE_MS = 3 * 60 * 1000;
+
+/** Состояние связи с платой по свежести последнего замера. */
+function linkState(measuredAt: string | null | undefined): {
+  online: boolean;
+  label: string;
+} {
+  if (!measuredAt) return { online: false, label: 'замеров ещё не было' };
+  const silentMs = Date.now() - new Date(measuredAt).getTime();
+  if (silentMs < LINK_SILENCE_MS) return { online: true, label: 'на связи' };
+
+  const minutes = Math.round(silentMs / 60000);
+  if (minutes < 60) return { online: false, label: `молчит ${minutes} мин` };
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return { online: false, label: `молчит ${hours} ч` };
+  return { online: false, label: `молчит ${Math.round(hours / 24)} сут` };
+}
 const temperatureStyle = (temperature: number | null | undefined) => {
   if (temperature == null) return 'text-foreground/45';
   if (temperature > 50) return 'text-critical animate-pulse';
@@ -119,6 +141,7 @@ export default function DevicesPage() {
           const status = statusByDevice.get(device.device_id);
           const isClosed = lidIsClosed(status?.lid_status ?? 'OPEN');
           const temperature = status?.temperature_in_c;
+          const link = linkState(status?.measured_at);
           const commandPending = commandMutation.isPending && commandMutation.variables?.deviceId === device.device_id;
           return (
             <article key={device.id} className="rounded-3xl border border-border bg-card p-5 shadow-sm">
@@ -127,7 +150,16 @@ export default function DevicesPage() {
                   <p className="font-mono text-sm font-bold">{device.device_id}</p>
                   <h2 className="mt-1 font-bold">{device.name}</h2>
                 </div>
-                <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${device.is_active ? 'bg-primary/10 text-primary' : 'bg-muted text-foreground/50'}`}>{device.is_active ? 'Активен' : 'Отключён'}</span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${device.is_active ? 'bg-primary/10 text-primary' : 'bg-muted text-foreground/50'}`}>{device.is_active ? 'В работе' : 'Снят'}</span>
+                  {/* «В работе» — решение диспетчера, связь — состояние железа.
+                      Раньше показывалось только первое, и умершая плата
+                      выглядела точно так же, как живая. */}
+                  <span className={`flex items-center gap-1.5 text-[11px] ${link.online ? 'text-primary' : 'text-foreground/45'}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${link.online ? 'bg-primary' : 'bg-foreground/30'}`} />
+                    {link.label}
+                  </span>
+                </div>
               </div>
               <p className="mt-3 flex gap-2 text-xs text-foreground/60"><MapPin className="h-4 w-4 shrink-0" />{device.address}</p>
 
