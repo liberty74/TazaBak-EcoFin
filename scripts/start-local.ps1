@@ -22,17 +22,25 @@ Write-Host ''
 Write-Host '  TazaBAK — локальный стенд' -ForegroundColor Green
 Write-Host ''
 
-# Адрес в локальной сети. Берём первый работающий адаптер, исключая петлевой
-# и виртуальные подсети Docker/WSL — вписав их в прошивку, плата стучалась бы
-# в никуда.
-$lanIp = (Get-NetIPAddress -AddressFamily IPv4 |
-    Where-Object {
-        $_.IPAddress -ne '127.0.0.1' -and
-        $_.PrefixOrigin -ne 'WellKnown' -and
-        $_.IPAddress -notlike '172.1*' -and
-        $_.IPAddress -notlike '169.254.*'
-    } |
-    Select-Object -First 1 -ExpandProperty IPAddress)
+# Адрес в локальной сети берётся у адаптера, через который идёт маршрут по
+# умолчанию, — это и есть тот Wi-Fi, к которому подключена плата.
+#
+# Перебирать адаптеры списком нельзя: Radmin VPN, Hyper-V и WSL заводят свои
+# интерфейсы, они попадают в перечисление раньше беспроводного, и в прошивку
+# уехал бы адрес вида 26.x — плата стучалась бы в туннель, которого у неё нет.
+# Маршрут по умолчанию отвечает на нужный вопрос прямо: куда эта машина
+# отправляет пакеты наружу.
+$defaultRoute = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
+    Sort-Object RouteMetric |
+    Select-Object -First 1
+
+$lanIp = $null
+if ($defaultRoute) {
+    $lanIp = (Get-NetIPAddress -AddressFamily IPv4 `
+            -InterfaceIndex $defaultRoute.InterfaceIndex -ErrorAction SilentlyContinue |
+        Where-Object { $_.IPAddress -ne '127.0.0.1' } |
+        Select-Object -First 1 -ExpandProperty IPAddress)
+}
 
 if (-not $lanIp) { $lanIp = 'не определён — посмотрите ipconfig' }
 
