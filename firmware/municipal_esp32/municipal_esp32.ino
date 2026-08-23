@@ -227,6 +227,12 @@ void setup() {
   webSocket.begin(BACKEND_HOST, BACKEND_PORT, String("/ws/device/") + DEVICE_ID);
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000UL);
+  // Без heartbeat оборванное соединение не обнаруживается: плата продолжает
+  // считать себя подключённой, а команды на закрытие заслонки не приходят.
+  // Wi-Fi роняет соединение молча, а через облачный прокси простаивающий
+  // сокет закрывают ещё и по таймауту. Пинг каждые 15 с, ответ ждём 3 с, две
+  // неудачи подряд считаем разрывом — тогда сработает переподключение выше.
+  webSocket.enableHeartbeat(15000UL, 3000UL, 2);
 }
 
 
